@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-top">
+    <div>
+      <h2>Solve from text, image, or document</h2>
+      <p class="muted">Choose an input mode and get a structured probability solution with optional hints and similar practice.</p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="stack-lg" id="solve-form">
+    <div class="form-row radios">
+      {% for mode in ["Text", "Image", "Document"] %}
+      <label class="radio-chip">
+        <input type="radio" name="input_mode" value="{{ mode }}" {% if input_mode == mode %}checked{% endif %}>
+        <span>{{ mode }}</span>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="form-row checkboxes">
+      <label class="checkbox-chip">
+        <input type="checkbox" name="include_similar" {% if include_similar %}checked{% endif %}>
+        <span>Include a similar practice problem</span>
+      </label>
+      <label class="checkbox-chip">
+        <input type="checkbox" name="show_hint" {% if show_hint %}checked{% endif %}>
+        <span>Add a short hint first</span>
+      </label>
+    </div>
+
+    <div class="solver-mode {% if input_mode == 'Text' %}active{% endif %}" data-mode="Text">
+      <label>Enter a probability exercise
+        <textarea name="problem_text" rows="8" placeholder="Example: A bag contains 4 red and 6 blue balls. Two are drawn without replacement. Find the probability both are red.">{{ request.form.get('problem_text', '') }}</textarea>
+      </label>
+    </div>
+
+    <div class="solver-mode {% if input_mode == 'Image' %}active{% endif %}" data-mode="Image">
+      <label>Upload worksheet image
+        <input type="file" name="image_file" accept=".png,.jpg,.jpeg,.webp">
+      </label>
+    </div>
+
+    <div class="solver-mode {% if input_mode == 'Document' %}active{% endif %}" data-mode="Document">
+      <label>Upload worksheet document
+        <input type="file" name="document_file" accept=".pdf,.docx,.txt,.md">
+      </label>
+    </div>
+
+    <div class="submit-wrap">
+      <button class="btn btn-primary" type="submit" id="solve-submit-btn">
+        <span class="btn-label">Solve step by step</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+  </form>
+</section>
+
+{% if extracted_text %}
+<section class="panel">
+  <h3>Preview extracted text</h3>
+  <pre class="pre-box">{{ extracted_text }}</pre>
+</section>
+{% endif %}
+
+{% if answer %}
+<section class="panel answer-panel">
+  <h3>Solution</h3>
+  <div class="answer-content">{{ answer }}</div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const radios = document.querySelectorAll('input[name="input_mode"]');
+  const sections = document.querySelectorAll('.solver-mode');
+
+  function updateModes() {
+    const selected = document.querySelector('input[name="input_mode"]:checked')?.value;
+    sections.forEach(section => {
+      section.classList.toggle('active', section.dataset.mode === selected);
+    });
+  }
+
+  radios.forEach(r => r.addEventListener('change', updateModes));
+  updateModes();
+
+  (function () {
+    const form = document.getElementById("solve-form");
+    const submitBtn = document.getElementById("solve-submit-btn");
+    if (!form || !submitBtn) return;
+
+    form.addEventListener("submit", function () {
+      submitBtn.classList.add("is-loading");
+      submitBtn.disabled = true;
+    });
+  })();
+</script>
+{% endblock %}

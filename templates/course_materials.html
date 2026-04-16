@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-top">
+    <div>
+      <h2>Course Materials</h2>
+      <p class="muted">Upload course PDFs or notes and index them for RAG across Solve, Tutor Chat, Practice, and Quiz.</p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" class="stack-lg">
+    <input type="hidden" name="action" value="upload_course">
+
+    <div class="grid-form">
+      <label>Chapter name
+        <input type="text" name="course_code" placeholder="e.g. Chapter 2: Probability" required>
+      </label>
+
+      <label>Title
+        <input type="text" name="title" placeholder="e.g. Chapter 2: Probability" required>
+      </label>
+
+      <label>Course file
+        <input type="file" name="course_file" accept=".pdf,.docx,.txt,.md" required>
+      </label>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Upload and index</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-top">
+    <div>
+      <h3>Indexed course documents</h3>
+      <p class="muted panel-subtext">Manage the uploaded learning material used for retrieval and grounding.</p>
+    </div>
+  </div>
+
+  {% if documents %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Chapter name</th>
+          <th>Title</th>
+          <th>Filename</th>
+          <th>Chunks</th>
+          <th>Uploaded at</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documents %}
+        <tr>
+          <td>{{ doc.id }}</td>
+          <td>{{ doc.course_code }}</td>
+          <td>{{ doc.title }}</td>
+          <td>{{ doc.filename }}</td>
+          <td>{{ doc.chunk_count }}</td>
+          <td>{{ doc.uploaded_at }}</td>
+          <td>
+            <form method="post" onsubmit="return confirm('Delete this indexed course document?');">
+              <input type="hidden" name="action" value="delete_course">
+              <input type="hidden" name="document_id" value="{{ doc.id }}">
+              <button class="btn btn-danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state muted">No course documents indexed yet.</div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-top">
+    <div>
+      <h2>Quiz mode</h2>
+      <p class="muted">Create adaptive quizzes by topic and difficulty, then review answers with explanations.</p>
+    </div>
+  </div>
+
+  {% if not quiz %}
+  <form method="post" class="stack-lg" id="quiz-create-form">
+    <input type="hidden" name="action" value="create">
+    <div class="grid-form">
+      <label>Quiz topic mode
+        <select name="topic_mode">
+          {% for option in ["Choose manually", "Use weakest topic", "Adaptive mix"] %}
+          <option value="{{ option }}">{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Quiz topic
+        <select name="topic">
+          {% for topic in topics %}
+          <option value="{{ topic }}" {% if topic == "All Topics" %}selected{% endif %}>{{ topic }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Quiz difficulty
+        <select name="difficulty">
+          {% for option in ["beginner", "intermediate", "advanced", "adaptive"] %}
+          <option value="{{ option }}" {% if option == 'adaptive' %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Number of questions
+        <input type="number" min="3" max="10" name="num_questions" value="10">
+      </label>
+
+      <label>Question style
+        <select name="question_style">
+          {% for option in ["Mixed", "Short answer", "Multiple choice"] %}
+          <option value="{{ option }}">{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="submit-wrap">
+      <button class="btn btn-primary" type="submit" id="quiz-create-btn">
+        <span class="btn-label">Create quiz</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+  </form>
+
+  {% else %}
+  <div class="quiz-meta">
+    <h3>{{ quiz.title }}</h3>
+    <p class="muted">Difficulty: {{ quiz.difficulty }} • Topic: {{ quiz.topic }}</p>
+  </div>
+
+  {% if not quiz_results %}
+  <form method="post" class="stack-lg" id="quiz-submit-form">
+    <input type="hidden" name="action" value="submit">
+
+    {% for q in quiz.questions %}
+    {% set q_index = loop.index %}
+    <section class="question-card">
+      <h4>Q{{ q_index }}. {{ q.question }}</h4>
+
+      {% if q.options %}
+      <div class="options-list">
+        {% for option in q.options %}
+        <label class="option-item">
+          <input type="radio" name="answer_{{ q_index }}" value="{{ option }}">
+          <span>{{ option }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <input type="text" name="answer_{{ q_index }}" placeholder="Your answer">
+      {% endif %}
+
+      {% if q.hint %}
+      <details class="hint-box">
+        <summary>Hint</summary>
+        <div>{{ q.hint }}</div>
+      </details>
+      {% endif %}
+    </section>
+    {% endfor %}
+
+    <div class="actions-row">
+      <button class="btn btn-primary" type="submit" id="quiz-submit-btn">
+        <span class="btn-label">Submit quiz</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+  </form>
+
+  <form method="post">
+    <input type="hidden" name="action" value="discard">
+    <button class="btn btn-secondary" type="submit">Discard quiz</button>
+  </form>
+
+  {% else %}
+  <section class="result-banner">
+    <strong>Score: {{ quiz_results.score }}/{{ quiz_results.total }} ({{ '%.0f' % quiz_results.percent }}%)</strong>
+  </section>
+
+  {% for item in quiz_results.results %}
+  <section class="question-card">
+    <h4>{{ '✅' if item.is_correct else '❌' }} Question {{ item.index }} — {{ item.topic }}</h4>
+    <p><strong>Your answer:</strong> {{ item.user_answer or '(blank)' }}</p>
+    <p><strong>Expected answer:</strong> {{ item.expected_answer }}</p>
+    <p><strong>Explanation:</strong> {{ item.explanation }}</p>
+  </section>
+  {% endfor %}
+
+  <section class="panel muted-feedback">{{ quiz_results.feedback }}</section>
+
+  <form method="post">
+    <input type="hidden" name="action" value="restart">
+    <button class="btn btn-primary" type="submit">Start another quiz</button>
+  </form>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    ["quiz-create-form", "quiz-submit-form"].forEach(function (formId) {
+      const form = document.getElementById(formId);
+      if (!form) return;
+
+      form.addEventListener("submit", function () {
+        const submitBtn = form.querySelector('button[type="submit"].btn-primary');
+        if (!submitBtn) return;
+        submitBtn.classList.add("is-loading");
+        submitBtn.disabled = true;
+      });
+    });
+  })();
+</script>
+{% endblock %}

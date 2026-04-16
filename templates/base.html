@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme_mode }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page_title }} - Probability AI Assistant</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+  {% block head_extra %}{% endblock %}
+</head>
+
+<body>
+  <div class="app-shell">
+
+    {% if current_user %}
+    <aside class="sidebar glass-card">
+
+      <div class="brand">
+        <div class="brand-icon">🎲</div>
+        <div>
+          <h2>Probability AI Assistant</h2>
+        </div>
+      </div>
+
+      <section class="side-section">
+        <div class="section-title">Account</div>
+        <div class="muted small">Logged in as: <strong>{{ current_user }}</strong></div>
+        <div class="muted small">Role: <strong>{{ 'Admin' if is_admin else 'Student' }}</strong></div>
+
+        <form method="post" action="{{ url_for('logout') }}">
+          <button class="btn btn-secondary btn-full" type="submit">Logout</button>
+        </form>
+      </section>
+
+      <section class="side-section">
+        <div class="section-title">Profile</div>
+        <ul class="profile-list">
+          <li><span>Student name</span><strong>{{ student.name }}</strong></li>
+          <li><span>Level</span><strong>{{ student.level }}</strong></li>
+          <li><span>Correct answers</span><strong>{{ student.correct_answers }}</strong></li>
+          <li><span>Wrong answers</span><strong>{{ student.wrong_answers }}</strong></li>
+          <li><span>Accuracy</span><strong>{{ '%.1f%%' % (student.accuracy() * 100) }}</strong></li>
+        </ul>
+      </section>
+
+      <section class="side-section">
+        <div class="section-title">Weak topics</div>
+
+        {% set weak = student.get_weak_topics() %}
+        {% if weak %}
+          <ul class="weak-topics">
+            {% for topic, count in weak.items() %}
+              <li>
+                <span>{{ topic }}</span>
+                <strong>{{ count }}</strong>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted small">No weak topics yet.</p>
+        {% endif %}
+      </section>
+
+      <div class="theme-panel">
+        <button class="theme-btn" type="button" data-theme-choice="light">Light</button>
+        <button class="theme-btn" type="button" data-theme-choice="dark">Dark</button>
+        <button class="theme-btn" type="button" data-theme-choice="system">System</button>
+      </div>
+
+    </aside>
+    {% endif %}
+
+    <main class="content">
+
+      {% if current_user %}
+      <header class="page-header">
+        <div class="page-header-copy">
+          <h1>Probability AI Assistant</h1>
+
+          <!-- FIXED HEADER TEXT -->
+          <p>Solve probability exercises from text, images, or uploaded worksheets.</p>
+
+          <!-- YOUR SIGNATURE -->
+          <div class="small muted">
+            Maram Dalal | FYP | USJ - Faculty of Sciences | 2026
+          </div>
+        </div>
+      </header>
+
+      <nav class="top-tabs">
+        {% for endpoint, label, key in nav_items %}
+          {% if key not in ['admin', 'course_materials'] or is_admin %}
+            <a class="tab-link {% if active_tab == key %}active{% endif %}"
+               href="{{ url_for(endpoint) }}">
+               {{ label }}
+            </a>
+          {% endif %}
+        {% endfor %}
+      </nav>
+      {% endif %}
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack">
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+
+    </main>
+  </div>
+
+  <script>
+    window.APP_THEME = "{{ theme_mode }}";
+  </script>
+
+  {% block scripts %}{% endblock %}
+
+  <script>
+    if (window.MathJax) {
+      MathJax.typesetPromise && MathJax.typesetPromise();
+    }
+  </script>
+
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+</body>
+</html>

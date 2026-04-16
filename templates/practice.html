@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-top">
+    <div>
+      <h2>Generate an exercise</h2>
+      <p class="muted">Create practice by topic, difficulty, or your current weak areas.</p>
+    </div>
+  </div>
+
+  <form method="post" class="stack-lg">
+    <div class="grid-form">
+      <label>Topic mode
+        <select name="topic_mode">
+          {% for option in ["Choose manually", "Use weakest topic", "Adaptive next topic"] %}
+          <option value="{{ option }}" {% if topic_mode == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Topic
+        <select name="topic">
+          {% for topic in topics %}
+          <option value="{{ topic }}" {% if chosen_topic == topic %}selected{% endif %}>{{ topic }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Difficulty
+        <select name="difficulty">
+          {% for option in ["beginner", "intermediate", "advanced", "adaptive"] %}
+          <option value="{{ option }}" {% if difficulty == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <label class="checkbox-chip">
+      <input type="checkbox" name="with_solution" {% if with_solution %}checked{% endif %}>
+      <span>Include full solution</span>
+    </label>
+
+    <button class="btn btn-primary" type="submit">Generate exercise</button>
+  </form>
+</section>
+
+{% if exercise %}
+<section class="panel answer-panel">
+  <h3>Generated exercise</h3>
+  <div class="answer-content">{{ exercise }}</div>
+</section>
+{% endif %}
+{% endblock %}

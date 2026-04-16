@@ -1,0 +1,8 @@
+Flask
+openai
+pandas
+plotly
+pypdf
+python-docx
+python-dotenv
+gunicorn

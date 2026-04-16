@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block head_extra %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>📊 Admin Dashboard</h2>
+  <p class="muted">Real-time insights into student performance and engagement</p>
+
+  <div class="metric-grid">
+    <div class="metric-card metric-animate">
+      <span>Total Users</span>
+      <strong class="counter" data-target="{{ overview.total_users }}">0</strong>
+    </div>
+    <div class="metric-card metric-animate">
+      <span>Students</span>
+      <strong class="counter" data-target="{{ overview.total_students }}">0</strong>
+    </div>
+    <div class="metric-card metric-animate">
+      <span>Admins</span>
+      <strong class="counter" data-target="{{ overview.total_admins }}">0</strong>
+    </div>
+    <div class="metric-card metric-animate">
+      <span>Average Accuracy</span>
+      <strong class="counter" data-target="{{ '%.1f' % overview.avg_accuracy }}" data-suffix="%">0</strong>
+    </div>
+  </div>
+</section>
+
+{% if figures %}
+<section class="chart-grid">
+  {% if figures.accuracy %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="accuracy-chart"></div></div></div>{% endif %}
+  {% if figures.levels %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="levels-chart"></div></div></div>{% endif %}
+  {% if figures.engagement %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="engagement-chart"></div></div></div>{% endif %}
+  {% if figures.weak %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="weak-chart"></div></div></div>{% endif %}
+</section>
+{% else %}
+<section class="panel"><div class="muted">No student activity yet. Solve quizzes to populate the dashboard.</div></section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-top">
+    <h3>Topic Participation</h3>
+    <form method="get" class="filter-form">
+      <input type="hidden" name="role" value="{{ filtered_role }}">
+      <input type="hidden" name="search" value="{{ search_text }}">
+      <input type="hidden" name="student_filter" value="{{ selected_student }}">
+      <select name="topic_filter">
+        <option value="All Topics" {% if selected_topic == "All Topics" %}selected{% endif %}>All Topics</option>
+        {% for topic in topic_options %}
+        <option value="{{ topic }}" {% if selected_topic == topic %}selected{% endif %}>{{ topic }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-secondary" type="submit">Apply topic</button>
+    </form>
+  </div>
+
+  {% if figures.topic_students %}
+  <div class="chart-panel chart-fade"><div class="chart-box"><div id="topic-students-chart"></div></div></div>
+  {% else %}
+  <div class="muted">No quiz-topic participation data yet.</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-top">
+    <h3>Student Quiz Progress</h3>
+    <form method="get" class="filter-form">
+      <input type="hidden" name="role" value="{{ filtered_role }}">
+      <input type="hidden" name="search" value="{{ search_text }}">
+      <input type="hidden" name="topic_filter" value="{{ selected_topic }}">
+      <select name="student_filter">
+        <option value="">Select student</option>
+        {% for student_name in student_options %}
+        <option value="{{ student_name }}" {% if selected_student == student_name %}selected{% endif %}>{{ student_name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-secondary" type="submit">Apply student</button>
+    </form>
+  </div>
+
+  {% if figures.student_progress %}
+  <div class="chart-panel chart-fade"><div class="chart-box"><div id="student-progress-chart"></div></div></div>
+  {% else %}
+  <div class="muted">Select a student with quiz attempts to see progress.</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-top">
+    <h3>User Details</h3>
+    <form method="get" class="filter-form">
+      <input type="hidden" name="topic_filter" value="{{ selected_topic }}">
+      <input type="hidden" name="student_filter" value="{{ selected_student }}">
+      <select name="role">
+        {% for option in ["All", "Student", "Admin"] %}
+        <option value="{{ option }}" {% if filtered_role == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="search" value="{{ search_text }}" placeholder="Search user">
+      <button class="btn btn-secondary" type="submit">Filter</button>
+    </form>
+  </div>
+
+  {% if table_rows %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Level</th>
+          <th>Correct</th>
+          <th>Wrong</th>
+          <th>Total</th>
+          <th>Accuracy %</th>
+          <th>Weak topics</th>
+          <th>Weakest topic</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in table_rows %}
+        <tr>
+          <td>{{ row.username }}</td>
+          <td>{{ row.role }}</td>
+          <td>{{ row.level }}</td>
+          <td>{{ row.correct_answers }}</td>
+          <td>{{ row.wrong_answers }}</td>
+          <td>{{ row.total_answers }}</td>
+          <td>{{ row.accuracy_percent }}</td>
+          <td>{{ row.weak_topics_count }}</td>
+          <td>{{ row.weakest_topic }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="muted">No users match the current filters.</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h3>Manage Users</h3>
+  <div class="manage-grid">
+    {% for user in users %}
+    <div class="user-card">
+      <h4>{{ user.username }}</h4>
+      <p><strong>Admin:</strong> {{ 'Yes' if user.is_admin else 'No' }}</p>
+      <p><strong>Level:</strong> {{ user.profile.level if user.profile and user.profile.level else 'beginner' }}</p>
+      <p><strong>Correct answers:</strong> {{ user.profile.correct_answers if user.profile and user.profile.correct_answers is not none else 0 }}</p>
+      <p><strong>Wrong answers:</strong> {{ user.profile.wrong_answers if user.profile and user.profile.wrong_answers is not none else 0 }}</p>
+      {% if user.username != 'admin' %}
+      <form method="post">
+        <input type="hidden" name="action" value="delete_user">
+        <input type="hidden" name="username" value="{{ user.username }}">
+        <button class="btn btn-danger" type="submit">Delete user</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const plotConfig = { responsive: true, displaylogo: false };
+    const chartIds = [];
+
+    function renderChart(id, figureJson) {
+      const parsed = JSON.parse(figureJson);
+      const layout = Object.assign({ autosize: true }, parsed.layout || {});
+      Plotly.newPlot(id, parsed.data || [], layout, plotConfig).then(function () {
+        const el = document.getElementById(id);
+        if (el && el.closest(".chart-fade")) {
+          el.closest(".chart-fade").classList.add("visible");
+        }
+      });
+      chartIds.push(id);
+    }
+
+    {% if figures.accuracy %}
+    renderChart("accuracy-chart", {{ figures.accuracy|tojson }});
+    {% endif %}
+    {% if figures.levels %}
+    renderChart("levels-chart", {{ figures.levels|tojson }});
+    {% endif %}
+    {% if figures.engagement %}
+    renderChart("engagement-chart", {{ figures.engagement|tojson }});
+    {% endif %}
+    {% if figures.weak %}
+    renderChart("weak-chart", {{ figures.weak|tojson }});
+    {% endif %}
+    {% if figures.topic_students %}
+    renderChart("topic-students-chart", {{ figures.topic_students|tojson }});
+    {% endif %}
+    {% if figures.student_progress %}
+    renderChart("student-progress-chart", {{ figures.student_progress|tojson }});
+    {% endif %}
+
+    function resizeCharts() {
+      chartIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) {
+          Plotly.Plots.resize(el);
+        }
+      });
+    }
+
+    function animateCounter(el) {
+      const target = parseFloat(el.dataset.target || "0");
+      const suffix = el.dataset.suffix || "";
+      const duration = 900;
+      const start = performance.now();
+
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = target * eased;
+
+        if (suffix === "%") {
+          el.textContent = value.toFixed(1) + suffix;
+        } else {
+          el.textContent = Math.round(value).toLocaleString() + suffix;
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        }
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    document.querySelectorAll(".counter").forEach(animateCounter);
+
+    window.addEventListener("resize", resizeCharts);
+    window.addEventListener("load", resizeCharts);
+    setTimeout(resizeCharts, 200);
+  })();
+</script>
+{% endblock %}
