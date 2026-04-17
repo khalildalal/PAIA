@@ -8,7 +8,7 @@
     </div>
   </div>
 
-  <form method="post" class="stack-lg">
+  <form method="post" class="stack-lg" id="practice-form">
     <div class="grid-form">
       <label>Topic mode
         <select name="topic_mode">
@@ -17,6 +17,7 @@
           {% endfor %}
         </select>
       </label>
+
       <label>Topic
         <select name="topic">
           {% for topic in topics %}
@@ -24,6 +25,7 @@
           {% endfor %}
         </select>
       </label>
+
       <label>Difficulty
         <select name="difficulty">
           {% for option in ["beginner", "intermediate", "advanced", "adaptive"] %}
@@ -38,14 +40,45 @@
       <span>Include full solution</span>
     </label>
 
-    <button class="btn btn-primary" type="submit">Generate exercise</button>
+    <!-- ✅ FIXED BUTTON -->
+    <button class="btn btn-primary" type="submit" id="practice-submit-btn">
+      <span class="btn-label">Generate exercise</span>
+      <span class="btn-spinner" aria-hidden="true"></span>
+    </button>
   </form>
 </section>
 
 {% if exercise %}
 <section class="panel answer-panel">
   <h3>Generated exercise</h3>
-  <div class="answer-content">{{ exercise }}</div>
+
+  <!-- ✅ SAFE + Math rendering -->
+  <div class="answer-content">
+    {{ exercise | safe }}
+  </div>
 </section>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+
+    // ✅ Loading spinner behavior
+    const form = document.getElementById("practice-form");
+    const btn = document.getElementById("practice-submit-btn");
+
+    if (form && btn) {
+      form.addEventListener("submit", function () {
+        btn.classList.add("is-loading");
+        btn.disabled = true;
+      });
+    }
+
+    // ✅ MathJax re-render
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise();
+    }
+  });
+</script>
 {% endblock %}
