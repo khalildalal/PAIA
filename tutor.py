@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, Optional, Sequence
 
 from prompts import build_quiz_json_schema, build_system_prompt
@@ -18,7 +19,7 @@ class ProbabilityTutor:
             input=user_input,
             store=False,
         )
-        return response.output_text
+        return self._postprocess_math(response.output_text)
 
     def _input_items(self, instructions: str, input_items: list[dict[str, Any]]) -> str:
         response = self.client.responses.create(
@@ -27,7 +28,7 @@ class ProbabilityTutor:
             input=input_items,
             store=False,
         )
-        return response.output_text
+        return self._postprocess_math(response.output_text)
 
     def _json(self, instructions: str, user_input: str, schema: dict[str, Any]) -> dict[str, Any]:
         response = self.client.responses.create(
@@ -65,7 +66,10 @@ class ProbabilityTutor:
 
     def _math_style_block(self) -> str:
         return """Math and formatting rules:
-- Use LaTeX inside $$ ... $$ for formulas and equations only.
+- Use inline LaTeX with single dollar signs like $X$, $P(X=3)$, and $P(X \\ge 1)$ when math appears inside a sentence.
+- Keep words and inline math on the same line whenever possible.
+- Use block LaTeX with $$ ... $$ only for longer standalone derivations or multi-line equations when truly necessary.
+- Do not put single symbols like $X$ or short expressions like $P(X=3)$ on their own line.
 - Keep ordinary text as plain text.
 - Do not put ordinary numbers alone on separate lines.
 - Keep the response neat, readable, and student-friendly."""
@@ -136,6 +140,28 @@ class ProbabilityTutor:
 Relevant course material:
 {course_context}
 """
+
+    def _postprocess_math(self, text: str) -> str:
+        if not text:
+            return text
+
+        cleaned = text
+
+        # Convert isolated block math like $$X$$ or $$P(X=3)$$ into inline math.
+        cleaned = re.sub(
+            r"\$\$\s*([A-Za-z0-9\\{}()[\]=+\-*/.,<>| ]{1,80})\s*\$\$",
+            lambda m: f"${m.group(1).strip()}$",
+            cleaned,
+        )
+
+        # Remove line breaks that split a sentence around very short inline math.
+        cleaned = re.sub(r"([A-Za-z0-9,;:])\n+\s*(\$[^$\n]{1,80}\$)", r"\1 \2", cleaned)
+        cleaned = re.sub(r"(\$[^$\n]{1,80}\$)\n+\s*([A-Za-z])", r"\1 \2", cleaned)
+
+        # Collapse repeated blank lines a bit.
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+
+        return cleaned
 
     def solve_problem(
         self,
