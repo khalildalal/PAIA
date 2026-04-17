@@ -12,6 +12,26 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+  </script>
+
   {% block head_extra %}{% endblock %}
 </head>
 
@@ -82,11 +102,7 @@
       <header class="page-header">
         <div class="page-header-copy">
           <h1>Probability AI Assistant</h1>
-
-          <!-- FIXED HEADER TEXT -->
           <p>Solve probability exercises from text, images, or uploaded worksheets.</p>
-
-          <!-- YOUR SIGNATURE -->
           <div class="small muted">
             Maram Dalal | FYP | USJ - Faculty of Sciences | 2026
           </div>
@@ -129,13 +145,11 @@
   {% block scripts %}{% endblock %}
 
   <script>
-    if (window.MathJax) {
-      MathJax.typesetPromise && MathJax.typesetPromise();
-    }
-  </script>
-
-  <script id="MathJax-script" async
-    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    document.addEventListener("DOMContentLoaded", function () {
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise();
+      }
+    });
   </script>
 
 </body>

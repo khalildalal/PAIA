@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="panel">
+
+  <!-- Header -->
   <div class="panel-top">
     <div>
       <h2>Tutor chat</h2>
-      <p class="muted">Ask for explanations, worked examples, practice, or probability guidance based on your current learning level.</p>
+      <p class="muted">
+        Ask for explanations, worked examples, practice, or probability guidance based on your current learning level.
+      </p>
     </div>
     <form method="post">
       <input type="hidden" name="action" value="clear">
@@ -12,21 +16,53 @@
     </form>
   </div>
 
+  <!-- Chat Thread -->
   <div class="chat-thread">
     {% for role, msg in chat_history %}
     <div class="chat-bubble {{ role }}">
-      <div class="chat-role">{{ 'You' if role == 'user' else 'Tutor' }}</div>
-      <div class="answer-content">{{ msg }}</div>
+      
+      <div class="chat-role">
+        {{ 'You' if role == 'user' else 'Tutor' }}
+      </div>
+
+      <!-- 🔥 FIXED: allow LaTeX + HTML rendering -->
+      <div class="answer-content">
+        {{ msg | safe }}
+      </div>
+
     </div>
     {% else %}
-    <div class="empty-state muted">Start the conversation with a probability question.</div>
+    <div class="empty-state muted">
+      Start the conversation with a probability question.
+    </div>
     {% endfor %}
   </div>
 
+  <!-- Input Form -->
   <form method="post" class="chat-form">
     <input type="hidden" name="action" value="send">
-    <textarea name="prompt" rows="3" placeholder="Ask a probability question or request practice"></textarea>
-    <button class="btn btn-primary" type="submit">Send</button>
+
+    <textarea 
+      name="prompt" 
+      rows="3" 
+      placeholder="Ask a probability question or request practice..."
+      required
+    ></textarea>
+
+    <button class="btn btn-primary" type="submit">
+      Send
+    </button>
   </form>
+
 </section>
+
+<!-- 🔥 FORCE MathJax re-render after new messages -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (window.MathJax) {
+    MathJax.typesetPromise();
+  }
+});
+</script>
+
 {% endblock %}

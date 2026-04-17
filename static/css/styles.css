@@ -281,9 +281,38 @@ textarea { resize: vertical; min-height: 120px; }
 }
 
 .answer-content {
-  white-space: pre-wrap;
+  white-space: normal;
   line-height: 1.7;
   color: var(--text);
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.answer-content p {
+  margin: 0 0 1em;
+}
+
+.answer-content p:last-child {
+  margin-bottom: 0;
+}
+
+.answer-content mjx-container {
+  display: inline !important;
+  margin: 0 0.08em !important;
+  vertical-align: baseline !important;
+}
+
+.answer-content mjx-container[display="true"] {
+  display: block !important;
+  margin: 0.9rem 0 !important;
+  text-align: left !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.answer-content .MathJax,
+.answer-content .MathJax_Display {
+  max-width: 100%;
 }
 
 .pre-box {
