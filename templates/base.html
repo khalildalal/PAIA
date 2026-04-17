@@ -149,6 +149,29 @@
       if (window.MathJax && window.MathJax.typesetPromise) {
         window.MathJax.typesetPromise();
       }
+
+      const forms = document.querySelectorAll("form");
+
+      forms.forEach((form) => {
+        form.addEventListener("submit", function () {
+          const submitButton = form.querySelector('button[type="submit"]');
+          if (!submitButton) return;
+
+          if (!submitButton.querySelector(".btn-label")) {
+            const originalText = submitButton.textContent.trim();
+            submitButton.innerHTML = '<span class="btn-label"></span><span class="btn-spinner" aria-hidden="true"></span>';
+            submitButton.querySelector(".btn-label").textContent = originalText;
+          } else if (!submitButton.querySelector(".btn-spinner")) {
+            const spinner = document.createElement("span");
+            spinner.className = "btn-spinner";
+            spinner.setAttribute("aria-hidden", "true");
+            submitButton.appendChild(spinner);
+          }
+
+          submitButton.classList.add("is-loading");
+          submitButton.disabled = true;
+        });
+      });
     });
   </script>
 
