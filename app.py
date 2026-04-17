@@ -44,6 +44,9 @@ DATA_DIR = Path(
 )
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+COURSE_FILES_DIR = DATA_DIR / "course_files"
+COURSE_FILES_DIR.mkdir(parents=True, exist_ok=True)
+
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-production")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
@@ -743,6 +746,30 @@ def save_temp_upload(uploaded_file) -> str:
         return tmp.name
 
 
+def build_persistent_upload_path(filename: str, destination_dir: Path = COURSE_FILES_DIR) -> Path:
+    clean_name = secure_filename(filename or "")
+    if not clean_name:
+        clean_name = "uploaded_file"
+
+    candidate = destination_dir / clean_name
+    stem = candidate.stem
+    suffix = candidate.suffix
+    counter = 1
+
+    while candidate.exists():
+        candidate = destination_dir / f"{stem}_{counter}{suffix}"
+        counter += 1
+
+    return candidate
+
+
+def save_persistent_upload(uploaded_file, destination_dir: Path = COURSE_FILES_DIR) -> tuple[str, str]:
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination_path = build_persistent_upload_path(uploaded_file.filename or "", destination_dir)
+    uploaded_file.save(str(destination_path))
+    return str(destination_path), destination_path.name
+
+
 def index_course_file(temp_path: str, filename: str, course_code: str, title: str) -> tuple[bool, str]:
     kind = detect_kind(filename)
     if kind != "document":
@@ -1204,10 +1231,23 @@ def course_materials():
             elif not title:
                 flash("Please provide a title.", "error")
             else:
-                filename = secure_filename(uploaded.filename)
-                temp_path = save_temp_upload(uploaded)
-                ok, message = index_course_file(temp_path, filename, course_code, title)
-                flash(message, "success" if ok else "error")
+                try:
+                    persistent_path, stored_filename = save_persistent_upload(uploaded)
+                except Exception as exc:
+                    flash(f"Could not save uploaded file: {exc}", "error")
+                    return redirect(url_for("course_materials"))
+
+                ok, message = index_course_file(
+                    persistent_path,
+                    stored_filename,
+                    course_code,
+                    title,
+                )
+
+                if ok:
+                    flash(message, "success")
+                else:
+                    flash(f"{message} The original file was kept in persistent storage.", "error")
             return redirect(url_for("course_materials"))
 
         if action == "delete_course":
@@ -1312,7 +1352,6 @@ def inject_utilities():
 bootstrap_default_courses()
 
 if __name__ == "__main__":
-    import os
-
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)
