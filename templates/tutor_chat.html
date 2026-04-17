@@ -2,7 +2,6 @@
 {% block content %}
 <section class="panel">
 
-  <!-- Header -->
   <div class="panel-top">
     <div>
       <h2>Tutor chat</h2>
@@ -16,20 +15,13 @@
     </form>
   </div>
 
-  <!-- Chat Thread -->
   <div class="chat-thread">
     {% for role, msg in chat_history %}
     <div class="chat-bubble {{ role }}">
-      
       <div class="chat-role">
         {{ 'You' if role == 'user' else 'Tutor' }}
       </div>
-
-      <!-- 🔥 FIXED: allow LaTeX + HTML rendering -->
-      <div class="answer-content">
-        {{ msg | safe }}
-      </div>
-
+      <div class="answer-content">{{ msg | safe }}</div>
     </div>
     {% else %}
     <div class="empty-state muted">
@@ -38,31 +30,41 @@
     {% endfor %}
   </div>
 
-  <!-- Input Form -->
-  <form method="post" class="chat-form">
+  <form method="post" class="chat-form" id="tutor-chat-form">
     <input type="hidden" name="action" value="send">
 
-    <textarea 
-      name="prompt" 
-      rows="3" 
+    <textarea
+      name="prompt"
+      rows="3"
       placeholder="Ask a probability question or request practice..."
       required
     ></textarea>
 
-    <button class="btn btn-primary" type="submit">
-      Send
+    <button class="btn btn-primary" type="submit" id="tutor-send-btn">
+      <span class="btn-label">Send</span>
+      <span class="btn-spinner" aria-hidden="true"></span>
     </button>
   </form>
 
 </section>
+{% endblock %}
 
-<!-- 🔥 FORCE MathJax re-render after new messages -->
+{% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (window.MathJax) {
-    MathJax.typesetPromise();
-  }
-});
-</script>
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise();
+    }
 
+    const form = document.getElementById("tutor-chat-form");
+    const submitBtn = document.getElementById("tutor-send-btn");
+
+    if (form && submitBtn) {
+      form.addEventListener("submit", function () {
+        submitBtn.classList.add("is-loading");
+        submitBtn.disabled = true;
+      });
+    }
+  });
+</script>
 {% endblock %}
