@@ -1,3 +1,19 @@
+"""
+AI tutor interface
+
+This file defines the ProbabilityTutor class, which is the app's main bridge to the OpenAI model.
+
+What this file does:
+1. Sends plain text requests to the model
+2. Sends multimodal requests with image input
+3. Requests structured JSON when generating quizzes
+4. Builds instructions for solving, chatting, and exercise generation
+5. Cleans up model output for better math formatting
+
+Why this matters:
+The rest of the app calls this class whenever it needs the AI tutor.
+"""
+
 from __future__ import annotations
 
 import json
@@ -8,11 +24,14 @@ from prompts import build_quiz_json_schema, build_system_prompt
 
 
 class ProbabilityTutor:
+    """Main interface used to ask the AI model for tutoring, solving, exercises, and quizzes."""
     def __init__(self, client: Any, model: str = "gpt-5.2") -> None:
+        """Store the API client and the model name to use."""
         self.client = client
         self.model = model
 
     def _text(self, instructions: str, user_input: str) -> str:
+        """Send a text-only request to the model and return cleaned output."""
         response = self.client.responses.create(
             model=self.model,
             instructions=instructions,
@@ -22,6 +41,7 @@ class ProbabilityTutor:
         return self._postprocess_math(response.output_text)
 
     def _input_items(self, instructions: str, input_items: list[dict[str, Any]]) -> str:
+        """Send a multimodal request (for example with an image) and return cleaned output."""
         response = self.client.responses.create(
             model=self.model,
             instructions=instructions,
@@ -31,6 +51,7 @@ class ProbabilityTutor:
         return self._postprocess_math(response.output_text)
 
     def _json(self, instructions: str, user_input: str, schema: dict[str, Any]) -> dict[str, Any]:
+        """Ask the model for strict JSON output that follows a schema."""
         response = self.client.responses.create(
             model=self.model,
             instructions=instructions,
@@ -52,9 +73,11 @@ class ProbabilityTutor:
         student_level: str,
         weak_topics: Optional[Dict[str, int]] = None,
     ) -> str:
+        """Build the system-level instruction string using student level and weak topics."""
         return build_system_prompt(student_level, weak_topics or {})
 
     def _solve_format_block(self) -> str:
+        """Return the required section order for solved problems."""
         return """Required format:
 1. Topic
 2. Given
@@ -65,6 +88,7 @@ class ProbabilityTutor:
 7. Quick check"""
 
     def _math_style_block(self) -> str:
+        """Return the math-formatting rules given to the model."""
         return """Math and formatting rules:
 - Use inline LaTeX with single dollar signs like $X$, $P(X=3)$, and $P(X \\ge 1)$ when math appears inside a sentence.
 - Keep words and inline math on the same line whenever possible.
@@ -75,6 +99,7 @@ class ProbabilityTutor:
 - Keep the response neat, readable, and student-friendly."""
 
     def _similar_problem_line(self, include_similar: bool) -> str:
+        """Decide whether the response should include an extra similar practice problem."""
         if include_similar:
             return "After the final answer, include one similar practice problem without solving it."
         return "Do not add a similar practice problem."
@@ -84,6 +109,7 @@ class ProbabilityTutor:
         chat_history: Optional[Sequence[tuple[str, str]]],
         max_messages: int = 10,
     ) -> str:
+        """Convert recent chat history into readable text for the model context."""
         if not chat_history:
             return "No previous conversation."
 
@@ -97,6 +123,7 @@ class ProbabilityTutor:
         return "\n".join(lines)
 
     def _teacher_style_block(self, student_level: str) -> str:
+        """Return teacher-style behavior instructions adapted to the student level."""
         return f"""Teacher behavior:
 - Act like a real teacher, not just a chatbot.
 - Adapt the explanation to a {student_level} student.
@@ -108,6 +135,7 @@ class ProbabilityTutor:
 - Prefer short, focused explanations over long messy answers."""
 
     def _chat_decision_block(self) -> str:
+        """Return rules that help the model decide how to respond in chat mode."""
         return """How to respond:
 - If the student asks for a concept, explain the concept clearly.
 - If the student asks for a solution, solve it step by step.
@@ -122,11 +150,13 @@ class ProbabilityTutor:
         self,
         chat_history: Optional[Sequence[tuple[str, str]]],
     ) -> bool:
+        """Check whether the assistant has already replied in the current conversation."""
         if not chat_history:
             return True
         return not any(role == "assistant" for role, _ in chat_history)
 
     def _course_context_block(self, course_context: str | None) -> str:
+        """Format retrieved course context so the tutor can ground its answer in course materials."""
         if not course_context:
             return """Course grounding:
 - No course material was retrieved for this request.
@@ -142,6 +172,7 @@ Relevant course material:
 """
 
     def _postprocess_math(self, text: str) -> str:
+        """Clean the model output so short math stays inline and spacing looks better."""
         if not text:
             return text
 
@@ -172,6 +203,7 @@ Relevant course material:
         include_hint: bool = False,
         course_context: str | None = None,
     ) -> str:
+        """Solve a problem entered as text using teacher-style explanations."""
         instructions = self._build_instructions(student_level, weak_topics)
 
         hint_line = (
@@ -212,6 +244,7 @@ Extra requirements:
         include_similar: bool = True,
         course_context: str | None = None,
     ) -> str:
+        """Solve one or more probability questions extracted from an uploaded document."""
         instructions = self._build_instructions(student_level, weak_topics)
         similar_line = self._similar_problem_line(include_similar)
 
@@ -248,6 +281,7 @@ Extra requirements:
         include_similar: bool = True,
         course_context: str | None = None,
     ) -> str:
+        """Read a worksheet image, extract the question, and solve it."""
         instructions = self._build_instructions(student_level, weak_topics)
 
         input_items = [
@@ -293,6 +327,7 @@ Extra requirements:
         with_solution: bool = False,
         course_context: str | None = None,
     ) -> str:
+        """Generate a new practice exercise, optionally with a full solution."""
         instructions = self._build_instructions(difficulty, weak_topics)
 
         solution_part = (
@@ -330,6 +365,7 @@ Requirements:
         weak_topics: Optional[Dict[str, int]] = None,
         course_context: str | None = None,
     ) -> dict[str, Any]:
+        """Generate a quiz in structured JSON format so the app can render and grade it."""
         instructions = self._build_instructions(difficulty, weak_topics)
         schema = build_quiz_json_schema()
 
@@ -385,6 +421,7 @@ Requirements:
         chat_history: Optional[Sequence[tuple[str, str]]] = None,
         course_context: str | None = None,
     ) -> str:
+        """Continue a tutor-style conversation using history and optional course grounding."""
         instructions = self._build_instructions(student_level, weak_topics)
         history_text = self._history_to_text(chat_history)
         is_first_message = self._is_first_teacher_reply(chat_history)

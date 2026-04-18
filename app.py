@@ -1,3 +1,32 @@
+"""
+Probability AI Assistant - Main Flask Application
+
+This file is the central controller of the project.
+
+What this file does:
+1. Creates and configures the Flask web application.
+2. Connects the app to the database and helper modules.
+3. Handles authentication and session state.
+4. Runs the RAG retrieval pipeline for course materials.
+5. Manages all major pages:
+   - Login
+   - Solve
+   - Practice
+   - Quiz
+   - Tutor Chat
+   - Course Materials
+   - Admin Dashboard
+
+How to read this file:
+- Start from the configuration section at the top.
+- Then read the helper functions.
+- After that, read the route functions at the bottom because they define what each page does.
+
+Important note:
+The comments added here are only for explanation.
+They do not change the program logic.
+"""
+
 from __future__ import annotations
 
 import math
@@ -34,8 +63,12 @@ from quiz_engine import QuizEngine
 from student_model import StudentProfile
 from tutor import ProbabilityTutor
 
+# Load variables from the .env file so the app can read secrets like API keys.
 load_dotenv()
 
+# BASE_DIR points to the folder where app.py is located.
+# DATA_DIR is where persistent app data is stored, such as the SQLite database
+# and uploaded course files. On Railway, this can point to a mounted volume.
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(
     os.getenv("DATA_DIR")
@@ -44,14 +77,21 @@ DATA_DIR = Path(
 )
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+# COURSE_FILES_DIR stores original uploaded course documents.
+# These files are kept so the RAG system can persist even after redeploys.
 COURSE_FILES_DIR = DATA_DIR / "course_files"
 COURSE_FILES_DIR.mkdir(parents=True, exist_ok=True)
 
+# Create the Flask application object.
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-production")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
 
+# Create the database store object.
+# It manages users, student profiles, course documents, chunks, and quiz attempts.
 store = ProgressStore(str(DATA_DIR / "student_profiles.db"))
+
+# Create the quiz grading engine.
 quiz_engine = QuizEngine()
 
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
@@ -61,6 +101,8 @@ EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 # -----------------------------
 # Syllabus mapping
 # -----------------------------
+# This dictionary maps chapter names to related keywords.
+# It helps the app guess which course chapter is most relevant to a question.
 SYLLABUS_TOPIC_MAP = {
     "Chapter 1: Descriptive Statistics": [
         "descriptive statistics",
@@ -172,7 +214,9 @@ STOPWORDS = {
 # -----------------------------
 # OpenAI / Tutor
 # -----------------------------
+# These functions connect the app to OpenAI and to the ProbabilityTutor class.
 def get_client() -> Optional[OpenAI]:
+    """Return an OpenAI client if an API key exists, otherwise return None."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return None
@@ -180,6 +224,7 @@ def get_client() -> Optional[OpenAI]:
 
 
 def get_tutor() -> Optional[ProbabilityTutor]:
+    """Create and return the tutor object used for solving, teaching, and quiz generation."""
     client = get_client()
     if client is None:
         return None
@@ -187,6 +232,7 @@ def get_tutor() -> Optional[ProbabilityTutor]:
 
 
 def embed_text(text: str) -> list[float]:
+    """Convert text into an embedding vector so it can be compared semantically in RAG retrieval."""
     client = get_client()
     if client is None:
         raise RuntimeError("OPENAI_API_KEY is missing.")
@@ -203,6 +249,7 @@ def embed_text(text: str) -> list[float]:
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Measure how similar two embedding vectors are."""
     if not a or not b or len(a) != len(b):
         return -1.0
 
@@ -219,16 +266,21 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 # -----------------------------
 # Retrieval helpers
 # -----------------------------
+# These helper functions prepare text, score chunks, and retrieve the most relevant
+# course material for solving, practice, quizzes, and tutor chat.
 def normalize_text(text: str) -> str:
+    """Lowercase text and collapse extra spaces for cleaner matching."""
     return " ".join((text or "").lower().split()).strip()
 
 
 def tokenize(text: str) -> list[str]:
+    """Split text into searchable tokens while removing common stopwords."""
     tokens = re.findall(r"[a-zA-Z0-9\-\+']+", normalize_text(text))
     return [t for t in tokens if t and t not in STOPWORDS and len(t) > 1]
 
 
 def build_topic_query(topic: str, difficulty: str, weak_topics: dict[str, int]) -> str:
+    """Build a retrieval query that includes topic, difficulty, and weak-topic context."""
     weak_text = ", ".join(weak_topics.keys()) if weak_topics else "None"
     return (
         f"Topic: {topic}\n"
@@ -239,6 +291,7 @@ def build_topic_query(topic: str, difficulty: str, weak_topics: dict[str, int]) 
 
 
 def detect_course_code_from_syllabus(query: str) -> str | None:
+    """Guess the best matching chapter by checking which syllabus keywords appear in the query."""
     q = normalize_text(query)
     if not q:
         return None
@@ -256,6 +309,7 @@ def detect_course_code_from_syllabus(query: str) -> str | None:
 
 
 def bm25_scores(query: str, chunks: list[dict], k1: float = 1.5, b: float = 0.75) -> dict[int, float]:
+    """Compute lexical relevance scores between a query and stored text chunks."""
     query_terms = tokenize(query)
     if not query_terms or not chunks:
         return {}
@@ -308,6 +362,7 @@ def retrieve_course_context(
     top_k: int = 4,
     course_code: str | None = None,
 ) -> str:
+    """Retrieve the most relevant course chunks for a query using hybrid semantic + lexical scoring."""
     clean_query = " ".join((query or "").split()).strip()
     if not clean_query:
         return ""
@@ -368,6 +423,7 @@ def retrieve_course_context(
 
 
 def retrieve_course_context_auto(query: str, top_k: int = 4) -> tuple[str, str | None]:
+    """Try chapter-focused retrieval first, then fall back to general retrieval."""
     detected = detect_course_code_from_syllabus(query)
 
     if detected:
@@ -381,15 +437,19 @@ def retrieve_course_context_auto(query: str, top_k: int = 4) -> tuple[str, str |
 # -----------------------------
 # Session / User helpers
 # -----------------------------
+# These functions read and update the current user and their session data.
 def current_username() -> Optional[str]:
+    """Return the username stored in the current session."""
     return session.get("user")
 
 
 def is_authenticated() -> bool:
+    """Check whether a user is currently logged in."""
     return current_username() is not None
 
 
 def load_student() -> StudentProfile:
+    """Load the current student profile from the database or create a default one."""
     username = current_username()
     if not username:
         return StudentProfile(name="Student")
@@ -401,6 +461,7 @@ def load_student() -> StudentProfile:
 
 
 def save_student(student: StudentProfile) -> None:
+    """Save the current student profile back to the database."""
     username = current_username()
     if not username:
         return
@@ -409,6 +470,7 @@ def save_student(student: StudentProfile) -> None:
 
 
 def get_chat_history() -> list[tuple[str, str]]:
+    """Read the tutor chat history from the session."""
     raw = session.get("chat_history", [])
     history: list[tuple[str, str]] = []
     for item in raw:
@@ -418,16 +480,19 @@ def get_chat_history() -> list[tuple[str, str]]:
 
 
 def set_chat_history(history: list[tuple[str, str]]) -> None:
+    """Store tutor chat history in the session."""
     session["chat_history"] = [{"role": role, "message": msg} for role, msg in history]
 
 
 def clear_learning_state() -> None:
+    """Clear session-based learning state such as chat and quiz progress."""
     session.pop("chat_history", None)
     session.pop("current_quiz", None)
     session.pop("quiz_results", None)
 
 
 def get_theme() -> str:
+    """Read the current visual theme from cookies."""
     theme = request.cookies.get("theme_preference", "system")
     if theme not in {"light", "dark", "system"}:
         return "system"
@@ -437,7 +502,9 @@ def get_theme() -> str:
 # -----------------------------
 # Admin analytics
 # -----------------------------
+# This section prepares statistics and charts for the admin dashboard.
 def build_admin_dataframe(users: list[dict]) -> pd.DataFrame:
+    """Convert stored user/profile data into a DataFrame for dashboard analytics."""
     rows: list[dict] = []
 
     for user in users:
@@ -482,6 +549,7 @@ def build_admin_dataframe(users: list[dict]) -> pd.DataFrame:
 
 
 def plotly_template_for_theme(theme: str) -> str:
+    """Choose the correct Plotly theme based on the current app theme."""
     return "plotly_dark" if theme != "light" else "plotly_white"
 
 
@@ -498,6 +566,7 @@ def build_admin_figures(
     selected_topic: str,
     selected_student: str,
 ) -> tuple[dict[str, str], list[str], list[str]]:
+    """Build all Plotly chart JSON used by the admin dashboard."""
     figures: dict[str, str] = {}
     template = plotly_template_for_theme(theme)
 
@@ -682,6 +751,7 @@ def build_admin_figures(
 # -----------------------------
 # Rendering / guards
 # -----------------------------
+# These functions help render pages consistently and protect routes that require login.
 def render_page(
     template_name: str,
     *,
@@ -689,6 +759,7 @@ def render_page(
     active_tab: str,
     **context,
 ):
+    """Render a template with common values shared by most pages."""
     student = load_student() if is_authenticated() else None
     return render_template(
         template_name,
@@ -703,12 +774,14 @@ def render_page(
 
 
 def ensure_logged_in():
+    """Redirect anonymous users to the login page."""
     if not is_authenticated():
         return redirect(url_for("login"))
     return None
 
 
 def persist_quiz(quiz: dict | None) -> None:
+    """Save the current quiz into the session or remove it."""
     if quiz is None:
         session.pop("current_quiz", None)
     else:
@@ -716,11 +789,13 @@ def persist_quiz(quiz: dict | None) -> None:
 
 
 def get_persisted_quiz() -> Optional[dict]:
+    """Return the current quiz stored in the session."""
     quiz = session.get("current_quiz")
     return quiz if isinstance(quiz, dict) else None
 
 
 def persist_quiz_results(results: dict | None) -> None:
+    """Save graded quiz results into the session or remove them."""
     if results is None:
         session.pop("quiz_results", None)
     else:
@@ -728,6 +803,7 @@ def persist_quiz_results(results: dict | None) -> None:
 
 
 def get_persisted_quiz_results() -> Optional[dict]:
+    """Return graded quiz results stored in the session."""
     results = session.get("quiz_results")
     return results if isinstance(results, dict) else None
 
@@ -735,7 +811,9 @@ def get_persisted_quiz_results() -> Optional[dict]:
 # -----------------------------
 # Upload helpers
 # -----------------------------
+# These functions save uploaded files and index course material for RAG retrieval.
 def save_temp_upload(uploaded_file) -> str:
+    """Save an uploaded file temporarily and return its path."""
     suffix = ""
     filename = secure_filename(uploaded_file.filename or "")
     if "." in filename:
@@ -747,6 +825,7 @@ def save_temp_upload(uploaded_file) -> str:
 
 
 def build_persistent_upload_path(filename: str, destination_dir: Path = COURSE_FILES_DIR) -> Path:
+    """Create a safe persistent file path and avoid overwriting existing files."""
     clean_name = secure_filename(filename or "")
     if not clean_name:
         clean_name = "uploaded_file"
@@ -764,6 +843,7 @@ def build_persistent_upload_path(filename: str, destination_dir: Path = COURSE_F
 
 
 def save_persistent_upload(uploaded_file, destination_dir: Path = COURSE_FILES_DIR) -> tuple[str, str]:
+    """Save an uploaded course file permanently and return its full path and stored filename."""
     destination_dir.mkdir(parents=True, exist_ok=True)
     destination_path = build_persistent_upload_path(uploaded_file.filename or "", destination_dir)
     uploaded_file.save(str(destination_path))
@@ -771,6 +851,7 @@ def save_persistent_upload(uploaded_file, destination_dir: Path = COURSE_FILES_D
 
 
 def index_course_file(temp_path: str, filename: str, course_code: str, title: str) -> tuple[bool, str]:
+    """Extract text, chunk it, embed it, and store it in the database for RAG retrieval."""
     kind = detect_kind(filename)
     if kind != "document":
         return False, "Unsupported document type."
@@ -808,6 +889,7 @@ def index_course_file(temp_path: str, filename: str, course_code: str, title: st
 
 
 def bootstrap_default_courses() -> None:
+    """Automatically index built-in course PDFs if they have not been indexed yet."""
     default_courses = [
         ("Chapter 1: Descriptive Statistics", "Chapter 1: Descriptive Statistics", "C1.pdf"),
         ("Chapter 2: Probability", "Chapter 2: Probability", "C2.pdf"),
@@ -851,8 +933,10 @@ def bootstrap_default_courses() -> None:
 # -----------------------------
 # Routes
 # -----------------------------
+# Each route below corresponds to one page or one user action in the web app.
 @app.route("/")
 def index():
+    """Homepage route: redirect logged-in users to solve, otherwise to login."""
     if is_authenticated():
         return redirect(url_for("solve"))
     return redirect(url_for("login"))
@@ -860,6 +944,7 @@ def index():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    """Handle both login and registration on the login page."""
     if is_authenticated():
         return redirect(url_for("solve"))
 
@@ -889,6 +974,7 @@ def login():
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    """Log the current user out and clear the session."""
     session.clear()
     flash("Logged out.", "success")
     return redirect(url_for("login"))
@@ -896,6 +982,7 @@ def logout():
 
 @app.route("/solve", methods=["GET", "POST"])
 def solve():
+    """Solve a probability problem from text, image, or uploaded document."""
     redirect_response = ensure_logged_in()
     if redirect_response:
         return redirect_response
@@ -1004,6 +1091,7 @@ def solve():
 
 @app.route("/practice", methods=["GET", "POST"])
 def practice():
+    """Generate a practice exercise based on topic, difficulty, or weak areas."""
     redirect_response = ensure_logged_in()
     if redirect_response:
         return redirect_response
@@ -1057,6 +1145,7 @@ def practice():
 
 @app.route("/quiz", methods=["GET", "POST"])
 def quiz():
+    """Create, submit, grade, and review quizzes."""
     redirect_response = ensure_logged_in()
     if redirect_response:
         return redirect_response
@@ -1163,6 +1252,7 @@ def quiz():
 
 @app.route("/tutor-chat", methods=["GET", "POST"])
 def tutor_chat():
+    """Run the tutor chat page with memory of recent conversation history."""
     redirect_response = ensure_logged_in()
     if redirect_response:
         return redirect_response
@@ -1208,6 +1298,7 @@ def tutor_chat():
 
 @app.route("/course-materials", methods=["GET", "POST"])
 def course_materials():
+    """Admin page for uploading, indexing, listing, and deleting course materials."""
     redirect_response = ensure_logged_in()
     if redirect_response:
         return redirect_response
@@ -1268,6 +1359,7 @@ def course_materials():
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
+    """Admin dashboard showing user statistics, charts, and management tools."""
     redirect_response = ensure_logged_in()
     if redirect_response:
         return redirect_response
@@ -1337,6 +1429,7 @@ def admin():
 
 @app.context_processor
 def inject_utilities():
+    """Inject shared navigation items into all templates."""
     return {
         "nav_items": [
             ("solve", "Solve", "solve"),
@@ -1349,8 +1442,11 @@ def inject_utilities():
     }
 
 
+# Index any default built-in course PDFs when the app starts.
 bootstrap_default_courses()
 
+# Start the Flask application.
+# On Railway, PORT is provided automatically.
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"

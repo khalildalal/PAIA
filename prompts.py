@@ -1,8 +1,26 @@
+"""
+Prompt-building rules for the AI tutor
+
+This file defines the system instructions given to the language model.
+
+What this file does:
+1. Describes the tutor's identity and scope
+2. Defines teaching behavior
+3. Defines formatting rules
+4. Defines math output rules
+5. Defines the structure expected for solved problems and quizzes
+
+Why this matters:
+Prompt design strongly affects the quality, clarity, and consistency of the AI responses.
+"""
+
 from __future__ import annotations
 
 from typing import Dict
 
 
+# BASE_PROMPT is the core instruction set sent to the model.
+# It tells the model who it is, what topics it can teach, and how to respond.
 BASE_PROMPT = '''
 You are a specialized AI tutor for probability and introductory statistics.
 
@@ -120,6 +138,7 @@ Adaptation instructions:
 
 
 def build_quiz_json_schema() -> dict:
+    """Return the JSON schema used when the model generates structured quiz data."""
     return {
         "name": "probability_quiz",
         "schema": {

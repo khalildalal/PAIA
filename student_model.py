@@ -1,3 +1,22 @@
+"""
+Student profile and adaptive learning model
+
+This file defines how the app represents a student and tracks their progress.
+
+What this file does:
+1. Stores student identity and current level
+2. Tracks correct and wrong answers
+3. Tracks weak topics
+4. Tracks topic mastery values
+5. Updates the student's level based on performance
+
+Why this matters:
+The app becomes adaptive by using this model to decide:
+- which topics are weak
+- which difficulty level fits the student
+- what topic to recommend next
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,6 +36,7 @@ DEFAULT_TOPICS = [
 
 @dataclass
 class StudentProfile:
+    """Store one student's progress, mastery, and adaptive learning state."""
     name: str
     level: str = "beginner"
     correct_answers: int = 0
@@ -25,10 +45,12 @@ class StudentProfile:
     topic_mastery: Dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self):
+        """Ensure all default topics exist in the mastery dictionary."""
         for topic in DEFAULT_TOPICS:
             self.topic_mastery.setdefault(topic, 0.5)
 
     def update_performance(self, topic: str, correct: bool) -> None:
+        """Update counts, mastery, and weak topics after one answered question."""
         if topic not in self.topic_mastery:
             self.topic_mastery[topic] = 0.5
 
@@ -47,6 +69,7 @@ class StudentProfile:
         self.adjust_level()
 
     def adjust_level(self) -> None:
+        """Adjust the student level using overall accuracy and average topic mastery."""
         total = self.correct_answers + self.wrong_answers
         if total < 6:
             self.level = "beginner"
@@ -63,16 +86,20 @@ class StudentProfile:
             self.level = "beginner"
 
     def accuracy(self) -> float:
+        """Return the student's accuracy as a value between 0 and 1."""
         total = self.correct_answers + self.wrong_answers
         return 0.0 if total == 0 else self.correct_answers / total
 
     def get_weak_topics(self) -> Dict[str, int]:
+        """Return weak topics sorted from weakest to strongest concern."""
         return dict(sorted(self.weak_topics.items(), key=lambda item: item[1], reverse=True))
 
     def weakest_topic(self) -> str | None:
+        """Return the single weakest topic if one exists."""
         return next(iter(self.get_weak_topics().keys()), None)
 
     def recommend_next_topic(self) -> str:
+        """Recommend the next topic to study, usually the weakest one first."""
         weakest = self.weakest_topic()
         if weakest:
             return weakest

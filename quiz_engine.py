@@ -1,3 +1,19 @@
+"""
+Quiz grading engine
+
+This file contains the logic for checking user quiz answers.
+
+What this file does:
+1. Normalizes answer text
+2. Tries to interpret numeric answers
+3. Compares expected answers with user answers
+4. Grades an entire quiz
+5. Produces detailed per-question feedback
+
+Why this matters:
+The main app creates quizzes, but this file decides whether answers are correct.
+"""
+
 from __future__ import annotations
 
 import math
@@ -7,10 +23,13 @@ from typing import Any, Dict, List
 
 
 class QuizEngine:
+    """Grade quizzes and compare student answers with expected answers."""
     def normalize(self, value: str) -> str:
+        """Lowercase and simplify text so answer comparisons become more reliable."""
         return re.sub(r"\s+", " ", str(value).strip().lower())
 
     def try_parse_number(self, text: str):
+        """Try to convert a text answer into a numeric value."""
         if text is None:
             return None
 
@@ -31,6 +50,7 @@ class QuizEngine:
             return None
 
     def answers_match(self, expected: str, user: str) -> bool:
+        """Check whether the expected answer and user answer should count as the same."""
         a = self.normalize(expected)
         b = self.normalize(user)
 
@@ -50,6 +70,7 @@ class QuizEngine:
         return compact_a == compact_b
 
     def grade_quiz(self, quiz: Dict[str, Any], answers: Dict[str, str]) -> Dict[str, Any]:
+        """Grade all questions in a quiz and return score details and explanations."""
         results: List[Dict[str, Any]] = []
         score = 0
 

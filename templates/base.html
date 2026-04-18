@@ -1,6 +1,23 @@
+<!--
+Base layout template
+
+This file defines the common page layout shared by most pages:
+- sidebar
+- top header
+- theme buttons
+- navigation tabs
+- MathJax setup
+- global JavaScript behaviors like button loading and auto-scroll
+
+This file was annotated for learning purposes.
+The comments explain what each major section does.
+They do not change how the page works.
+-->
+
 <!DOCTYPE html>
 <html lang="en" data-theme="{{ theme_mode }}">
 <head>
+  <!-- Shared page metadata, fonts, styles, and JavaScript libraries -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ page_title }} - Probability AI Assistant</title>
@@ -37,10 +54,12 @@
 </head>
 
 <body>
+  <!-- The full app layout starts here -->
   <div class="app-shell">
 
     {% if current_user %}
     <aside class="sidebar glass-card">
+      <!-- Sidebar: account, student profile, weak topics, and theme controls -->
 
       <div class="brand">
         <div class="brand-icon">🎲</div>
@@ -98,9 +117,11 @@
     {% endif %}
 
     <main class="content">
+      <!-- Main page content area -->
 
       {% if current_user %}
       <header class="page-header">
+        <!-- Top page header shown after login -->
         <div class="page-header-copy">
           <h1>Probability AI Assistant</h1>
           <p>Solve probability exercises from text, images, or uploaded worksheets.</p>
@@ -111,6 +132,7 @@
       </header>
 
       <nav class="top-tabs">
+        <!-- Navigation tabs between app pages -->
         {% for endpoint, label, key in nav_items %}
           {% if key not in ['admin', 'course_materials'] or is_admin %}
             <a class="tab-link {% if active_tab == key %}active{% endif %}"

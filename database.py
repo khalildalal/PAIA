@@ -1,3 +1,24 @@
+"""
+Database layer for the Probability AI Assistant
+
+This file is responsible for storing and retrieving persistent application data.
+
+What this file manages:
+1. User accounts (login, password, admin role)
+2. Student profile data
+3. Uploaded course documents and their text chunks
+4. Quiz attempts and topic-level quiz results
+
+Main idea:
+- The app uses SQLite as a lightweight local database.
+- The ProgressStore class is the main interface used by the rest of the project.
+- Other files do not directly write SQL everywhere; instead, they call methods from this class.
+
+Important note:
+These comments are for learning purposes only.
+They do not change how the code works.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,24 +28,32 @@ from pathlib import Path
 from typing import Optional
 
 
+# Convert a password into a SHA-256 hash before saving it.
+# This avoids storing plain-text passwords in the database.
 def hash_password(password: str) -> str:
+    """Return a hashed version of the password for safer storage."""
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 class ProgressStore:
+    """Main database manager class used across the application."""
     def __init__(self, path: str):
+        """Store the database path, ensure folders exist, and initialize tables."""
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
+        """Open a database connection and enable dictionary-like row access."""
         conn = sqlite3.connect(self.path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def _init_db(self) -> None:
+        """Create all required tables if they do not already exist."""
         with self._connect() as conn:
+            # users: stores login info, admin flag, and serialized student profile data.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS users (
@@ -36,6 +65,7 @@ class ProgressStore:
                 """
             )
 
+            # course_documents: one row per uploaded source file used in RAG.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS course_documents (
@@ -48,6 +78,7 @@ class ProgressStore:
                 """
             )
 
+            # course_chunks: stores chunked text and embeddings for retrieval.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS course_chunks (
@@ -61,6 +92,7 @@ class ProgressStore:
                 """
             )
 
+            # quiz_attempts: one row per completed quiz.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS quiz_attempts (
@@ -77,6 +109,7 @@ class ProgressStore:
                 """
             )
 
+            # quiz_attempt_topics: topic-level correctness data for analytics.
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS quiz_attempt_topics (
@@ -92,6 +125,7 @@ class ProgressStore:
                 """
             )
 
+            # Create a default admin account if it does not already exist.
             conn.execute(
                 """
                 INSERT OR IGNORE INTO users (username, password, is_admin, profile_json)
@@ -104,7 +138,9 @@ class ProgressStore:
     # -------------------------
     # Auth
     # -------------------------
+    # Functions in this section handle account creation, login checking, and admin checks.
     def create_user(self, username: str, password: str) -> bool:
+        """Create a new student account if the username does not already exist."""
         clean_username = (username or "").strip()
         if not clean_username or not password:
             return False
@@ -124,6 +160,7 @@ class ProgressStore:
                 return False
 
     def authenticate(self, username: str, password: str) -> bool:
+        """Check whether a username/password combination is valid."""
         clean_username = (username or "").strip()
         if not clean_username or not password:
             return False
@@ -144,6 +181,7 @@ class ProgressStore:
         return row["password"] == hash_password(password)
 
     def is_admin(self, username: str) -> bool:
+        """Return True if the given user is an admin."""
         clean_username = (username or "").strip()
         if not clean_username:
             return False
@@ -163,7 +201,9 @@ class ProgressStore:
     # -------------------------
     # Profiles
     # -------------------------
+    # These functions save and load student learning progress stored as JSON.
     def save_profile(self, username: str, profile_data: dict) -> None:
+        """Save a student profile as JSON in the users table."""
         clean_username = (username or "").strip()
         if not clean_username:
             return
@@ -180,6 +220,7 @@ class ProgressStore:
             conn.commit()
 
     def load_profile(self, username: str) -> Optional[dict]:
+        """Load a student profile from JSON and return it as a dictionary."""
         clean_username = (username or "").strip()
         if not clean_username:
             return None
@@ -205,7 +246,9 @@ class ProgressStore:
     # -------------------------
     # Admin
     # -------------------------
+    # These functions support admin pages, user management, and dashboard data.
     def list_users(self) -> list[dict]:
+        """Return all users with their roles and stored profile data."""
         with self._connect() as conn:
             rows = conn.execute(
                 """

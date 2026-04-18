@@ -1,3 +1,20 @@
+/*
+Main stylesheet for the Probability AI Assistant
+
+This file defines the visual appearance of the app.
+
+Main responsibilities:
+1. Theme colors for light, dark, and system mode
+2. Layout of the sidebar, content area, and responsive pages
+3. Styling for panels, forms, buttons, charts, and tables
+4. Chat/tutor UI formatting
+5. Math rendering support for MathJax output
+
+The comments added here are for learning only.
+They do not change how the styles behave.
+*/
+
+/* Light theme color variables */
 :root {
   --bg: #f5f7fb;
   --bg-soft: #ffffff;
@@ -17,6 +34,7 @@
   --flash-success-text: #166534;
 }
 
+/* Dark theme color variables */
 html[data-theme="dark"] {
   --bg: #07111f;
   --bg-soft: #0f1a2e;
@@ -34,6 +52,7 @@ html[data-theme="dark"] {
   --flash-success-text: #bbf7d0;
 }
 
+/* System theme: use dark colors when the device prefers dark mode */
 @media (prefers-color-scheme: dark) {
   html[data-theme="system"] {
     --bg: #07111f;
@@ -55,6 +74,7 @@ html[data-theme="dark"] {
 
 * { box-sizing: border-box; }
 
+/* General page background and typography */
 body {
   margin: 0;
   font-family: "Inter", sans-serif;
@@ -66,16 +86,19 @@ body {
   min-height: 100vh;
 }
 
-.login-body { overflow-x: hidden; }
+.login-/* General page background and typography */
+body { overflow-x: hidden; }
 
 a { color: inherit; text-decoration: none; }
 
+/* Main two-column application layout: sidebar + content */
 .app-shell {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   min-height: 100vh;
 }
 
+/* Left sidebar showing account, profile, weak topics, and theme buttons */
 .sidebar {
   margin: 18px;
   padding: 22px;
@@ -84,11 +107,13 @@ a { color: inherit; text-decoration: none; }
   top: 18px;
 }
 
+/* Right content area where pages are rendered */
 .content {
   padding: 18px 18px 40px 0;
   min-width: 0;
 }
 
+/* Shared glass-style cards and panels used throughout the UI */
 .glass-card,
 .panel,
 .metric-card,
@@ -142,6 +167,7 @@ a { color: inherit; text-decoration: none; }
 }
 .weak-topics li span:first-child { flex: 1; }
 
+/* Theme switcher button group */
 .theme-panel {
   display: flex;
   gap: 10px;
@@ -161,6 +187,7 @@ a { color: inherit; text-decoration: none; }
 .theme-btn:hover,
 .theme-btn.active { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: white; border-color: transparent; }
 
+/* Top navigation tabs between solve, practice, quiz, tutor, etc. */
 .top-tabs {
   display: flex;
   gap: 10px;
@@ -184,6 +211,7 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 14px 28px rgba(109, 94, 252, 0.24);
 }
 
+/* Standard content panel used on most pages */
 .panel {
   padding: 24px;
   margin-bottom: 18px;
@@ -227,6 +255,7 @@ input[type="text"], input[type="password"], input[type="number"], input[type="fi
 
 textarea { resize: vertical; min-height: 120px; }
 
+/* Base button styling, including transitions and hover effects */
 .btn {
   border: none;
   border-radius: 14px;
@@ -280,6 +309,9 @@ textarea { resize: vertical; min-height: 120px; }
   margin-left: 10px;
 }
 
+/* Text area for solver, tutor, and generated content.
+   pre-wrap preserves line breaks while still allowing wrapping.
+   This is important for readable AI responses. */
 .answer-content {
   white-space: pre-wrap;
   line-height: 1.7;
@@ -296,12 +328,14 @@ textarea { resize: vertical; min-height: 120px; }
   margin-bottom: 0;
 }
 
+/* Keep inline MathJax expressions on the same line as surrounding words */
 .answer-content mjx-container {
   display: inline !important;
   margin: 0 0.08em !important;
   vertical-align: baseline !important;
 }
 
+/* Display-style math should remain block-level and readable */
 .answer-content mjx-container[display="true"] {
   display: block !important;
   margin: 0.9rem 0 !important;
@@ -327,6 +361,7 @@ textarea { resize: vertical; min-height: 120px; }
 .solver-mode { display: none; }
 .solver-mode.active { display: block; }
 
+/* Scrollable area for tutor chat messages */
 .chat-thread { display: grid; gap: 14px; max-height: 56vh; overflow: auto; padding-right: 4px; margin-bottom: 18px; align-content: start; }
 .chat-bubble {
   padding: 14px 16px;
@@ -384,6 +419,7 @@ textarea { resize: vertical; min-height: 120px; }
   gap: 16px;
 }
 
+/* Grid used by the admin dashboard summary cards */
 .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 16px; }
 .metric-card {
   padding: 16px 18px;
@@ -401,6 +437,7 @@ textarea { resize: vertical; min-height: 120px; }
 .metric-grid .metric-card:nth-child(3) { animation-delay: 0.16s; }
 .metric-grid .metric-card:nth-child(4) { animation-delay: 0.24s; }
 
+/* Grid used by the admin dashboard charts */
 .chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .chart-panel { min-height: 380px; width: 100%; overflow: hidden; }
 .chart-box { width: 100%; min-height: 380px; }
@@ -454,6 +491,7 @@ textarea { resize: vertical; min-height: 120px; }
 .small { font-size: 0.92rem; }
 .muted { color: var(--text-muted); }
 
+/* Special layout for the login page */
 .login-layout {
   min-height: 100vh;
   display: grid;
@@ -555,40 +593,55 @@ textarea { resize: vertical; min-height: 120px; }
 @media (max-width: 900px) {
   .page-header { padding: 22px 20px 18px; }
   .page-header h1 { font-size: 2rem; }
-  .panel { padding: 20px; }
-  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Standard content panel used on most pages */
+.panel { padding: 20px; }
+  /* Grid used by the admin dashboard summary cards */
+.metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Tablet/mobile layout adjustments */
 @media (max-width: 1100px) {
-  .app-shell { grid-template-columns: 1fr; }
-  .sidebar { position: static; margin: 18px 18px 0; }
-  .content { padding: 18px; }
-  .login-layout { grid-template-columns: 1fr; }
+  /* Main two-column application layout: sidebar + content */
+.app-shell { grid-template-columns: 1fr; }
+  /* Left sidebar showing account, profile, weak topics, and theme buttons */
+.sidebar { position: static; margin: 18px 18px 0; }
+  /* Right content area where pages are rendered */
+.content { padding: 18px; }
+  /* Special layout for the login page */
+.login-layout { grid-template-columns: 1fr; }
   .auth-panel { justify-self: stretch; width: 100%; }
   .hero-panel { min-height: auto; }
   .metric-grid, .chart-grid, .manage-grid, .grid-form { grid-template-columns: 1fr; }
 }
 
+/* Small-screen layout adjustments */
 @media (max-width: 640px) {
-  .sidebar { margin: 14px 14px 0; padding: 18px; }
-  .content { padding: 14px; }
+  /* Left sidebar showing account, profile, weak topics, and theme buttons */
+.sidebar { margin: 14px 14px 0; padding: 18px; }
+  /* Right content area where pages are rendered */
+.content { padding: 14px; }
   .page-header { padding: 18px 16px 16px; border-radius: 24px; }
   .page-header h1 { font-size: 1.7rem; }
-  .top-tabs { gap: 8px; padding: 0 2px 16px; }
+  /* Top navigation tabs between solve, practice, quiz, tutor, etc. */
+.top-tabs { gap: 8px; padding: 0 2px 16px; }
   .tab-link { width: 100%; text-align: center; }
-  .panel { padding: 16px; border-radius: 20px; }
-  .metric-grid { grid-template-columns: 1fr; }
+  /* Standard content panel used on most pages */
+.panel { padding: 16px; border-radius: 20px; }
+  /* Grid used by the admin dashboard summary cards */
+.metric-grid { grid-template-columns: 1fr; }
   .metric-card strong { font-size: 1.7rem; }
   .chat-bubble { max-width: 100%; }
   .filter-form { width: 100%; }
   .filter-form > * { width: 100%; }
   .actions-row .btn,
   .panel-top form .btn,
-  .filter-form .btn { width: 100%; }
+  .filter-form /* Base button styling, including transitions and hover effects */
+.btn { width: 100%; }
   .hero-panel, .auth-panel { padding: 20px; }
   .hero-panel h1 { max-width: none; font-size: clamp(2.2rem, 10vw, 3.2rem); }
   .hero-panel p { max-width: none; font-size: 1rem; }
   .login-signature { white-space: normal; }
-  .theme-panel { gap: 8px; }
+  /* Theme switcher button group */
+.theme-panel { gap: 8px; }
   .theme-btn { flex: 1 1 0; text-align: center; }
 }
