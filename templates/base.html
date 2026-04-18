@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
+  <!-- ✅ MathJax Config -->
   <script>
     window.MathJax = {
       tex: {
@@ -144,34 +145,59 @@
 
   {% block scripts %}{% endblock %}
 
+  <!-- ✅ GLOBAL BEHAVIOR SCRIPT -->
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      if (window.MathJax && window.MathJax.typesetPromise) {
-        window.MathJax.typesetPromise();
+
+      // ✅ MathJax render
+      function renderMathAndScroll() {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          return window.MathJax.typesetPromise();
+        }
+        return Promise.resolve();
       }
 
-      const forms = document.querySelectorAll("form");
+      // ✅ AUTO SCROLL
+      function scrollToLatest() {
+        const solution = document.querySelector("#solution-block");
+        const exercise = document.querySelector("#exercise-block");
+        const chat = document.querySelector(".chat-thread");
 
-      forms.forEach((form) => {
+        if (chat) {
+          chat.scrollTop = chat.scrollHeight;
+        } else if (solution) {
+          solution.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (exercise) {
+          exercise.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+
+      renderMathAndScroll().then(scrollToLatest);
+
+      // ✅ GLOBAL BUTTON LOADING
+      document.querySelectorAll("form").forEach((form) => {
         form.addEventListener("submit", function () {
-          const submitButton = form.querySelector('button[type="submit"]');
-          if (!submitButton) return;
+          const btn = form.querySelector('button[type="submit"]');
+          if (!btn) return;
 
-          if (!submitButton.querySelector(".btn-label")) {
-            const originalText = submitButton.textContent.trim();
-            submitButton.innerHTML = '<span class="btn-label"></span><span class="btn-spinner" aria-hidden="true"></span>';
-            submitButton.querySelector(".btn-label").textContent = originalText;
-          } else if (!submitButton.querySelector(".btn-spinner")) {
+          if (!btn.querySelector(".btn-label")) {
+            const text = btn.textContent.trim();
+            btn.innerHTML = `
+              <span class="btn-label">${text}</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            `;
+          } else if (!btn.querySelector(".btn-spinner")) {
             const spinner = document.createElement("span");
             spinner.className = "btn-spinner";
             spinner.setAttribute("aria-hidden", "true");
-            submitButton.appendChild(spinner);
+            btn.appendChild(spinner);
           }
 
-          submitButton.classList.add("is-loading");
-          submitButton.disabled = true;
+          btn.classList.add("is-loading");
+          btn.disabled = true;
         });
       });
+
     });
   </script>
 
