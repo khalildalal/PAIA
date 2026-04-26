@@ -20,7 +20,7 @@ They do not change how the page works.
   <!-- Shared page metadata, fonts, styles, and JavaScript libraries -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ page_title }} - Probability AI Assistant</title>
+  <title>{{ page_title }} - Probability Course AI Assistant</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +29,6 @@ They do not change how the page works.
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
 
-  <!-- ✅ MathJax Config -->
   <script>
     window.MathJax = {
       tex: {
@@ -54,17 +53,15 @@ They do not change how the page works.
 </head>
 
 <body>
-  <!-- The full app layout starts here -->
   <div class="app-shell">
 
     {% if current_user %}
     <aside class="sidebar glass-card">
-      <!-- Sidebar: account, student profile, weak topics, and theme controls -->
 
       <div class="brand">
         <div class="brand-icon">🎲</div>
         <div>
-          <h2>Probability AI Assistant</h2>
+          <h2>Probability Course AI Assistant</h2>
         </div>
       </div>
 
@@ -117,13 +114,11 @@ They do not change how the page works.
     {% endif %}
 
     <main class="content">
-      <!-- Main page content area -->
 
       {% if current_user %}
       <header class="page-header">
-        <!-- Top page header shown after login -->
         <div class="page-header-copy">
-          <h1>Probability AI Assistant</h1>
+          <h1>Probability Course AI Assistant</h1>
           <p>Solve probability exercises from text, images, or uploaded worksheets.</p>
           <div class="small muted">
             Maram Dalal | FYP | USJ - Faculty of Sciences | 2026
@@ -132,7 +127,6 @@ They do not change how the page works.
       </header>
 
       <nav class="top-tabs">
-        <!-- Navigation tabs between app pages -->
         {% for endpoint, label, key in nav_items %}
           {% if key not in ['admin', 'course_materials'] or is_admin %}
             <a class="tab-link {% if active_tab == key %}active{% endif %}"
@@ -167,11 +161,9 @@ They do not change how the page works.
 
   {% block scripts %}{% endblock %}
 
-  <!-- ✅ GLOBAL BEHAVIOR SCRIPT -->
   <script>
     document.addEventListener("DOMContentLoaded", function () {
 
-      // ✅ MathJax render
       function renderMathAndScroll() {
         if (window.MathJax && window.MathJax.typesetPromise) {
           return window.MathJax.typesetPromise();
@@ -179,7 +171,6 @@ They do not change how the page works.
         return Promise.resolve();
       }
 
-      // ✅ AUTO SCROLL
       function scrollToLatest() {
         const solution = document.querySelector("#solution-block");
         const exercise = document.querySelector("#exercise-block");
@@ -196,7 +187,6 @@ They do not change how the page works.
 
       renderMathAndScroll().then(scrollToLatest);
 
-      // ✅ GLOBAL BUTTON LOADING
       document.querySelectorAll("form").forEach((form) => {
         form.addEventListener("submit", function () {
           const btn = form.querySelector('button[type="submit"]');
