@@ -569,8 +569,16 @@ def build_admin_figures(
     figures: dict[str, str] = {}
     template = plotly_template_for_theme(theme)
 
-    topic_names = store.list_quiz_topics()
+    # Use only RAG indexed course chapters/topics in Topic Participation filter
+    rag_documents = store.list_course_documents()
+    topic_names = sorted({
+        doc["course_code"]
+        for doc in rag_documents
+        if doc.get("course_code")
+    })
+
     student_names = store.list_student_usernames()
+  
 
     def add_dropdown(fig, buttons):
         fig.update_layout(
