@@ -1041,7 +1041,7 @@ def get_persisted_quiz() -> Optional[dict]:
 
 def persist_quiz_results(results: dict | None) -> None:
     """Save graded quiz results into the session or remove them."""
-    if results is N.pyone:
+    if results is None:
         session.pop("quiz_results", None)
     else:
         session["quiz_results"] = results
@@ -1397,13 +1397,20 @@ def quiz():
 
     tutor = get_tutor()
     student = load_student()
-   course_documents = store.list_course_documents()
-rag_topics = sorted({doc["course_code"] for doc in course_documents if doc.get("course_code")})
 
-topics = ["All Topics"] + rag_topics
+    # Use chapters uploaded/indexed in the RAG Course Materials page.
+    course_documents = store.list_course_documents()
+    rag_topics = sorted({
+        doc["course_code"]
+        for doc in course_documents
+        if doc.get("course_code")
+    })
 
-if not rag_topics:
-    topics = ["All Topics"] + student.topic_list()
+    topics = ["All Topics"] + rag_topics
+
+    # If no RAG chapters exist yet, use the default student topic list.
+    if not rag_topics:
+        topics = ["All Topics"] + student.topic_list()
 
     quiz = get_persisted_quiz()
     quiz_results = get_persisted_quiz_results()
@@ -1422,6 +1429,7 @@ if not rag_topics:
                 question_style = request.form.get("question_style", "Mixed")
 
                 topic = chosen_topic
+
                 if topic_mode == "Use weakest topic":
                     topic = student.weakest_topic() or chosen_topic
                 elif topic_mode == "Adaptive mix":
@@ -1450,6 +1458,7 @@ if not rag_topics:
                     weak_topics=student.get_weak_topics(),
                     course_context=course_context,
                 )
+
                 persist_quiz(quiz)
                 persist_quiz_results(None)
                 return redirect(url_for("quiz"))
@@ -1460,6 +1469,7 @@ if not rag_topics:
                     str(i): request.form.get(f"answer_{i}", "")
                     for i in range(1, len(quiz.get("questions", [])) + 1)
                 }
+
                 quiz_results = quiz_engine.grade_quiz(quiz=quiz, answers=answers)
                 persist_quiz_results(quiz_results)
 
@@ -1499,8 +1509,6 @@ if not rag_topics:
         quiz=quiz,
         quiz_results=quiz_results,
     )
-
-
 @app.route("/tutor-chat", methods=["GET", "POST"])
 def tutor_chat():
     """Run the tutor chat page with memory of recent conversation history."""
