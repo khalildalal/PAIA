@@ -577,21 +577,19 @@ def build_admin_figures(
         student_df = df[df["role"] == "Student"].copy()
 
         if not student_df.empty:
-            # Top 15 accuracy users instead of showing all users.
-            accuracy_df = (
-                student_df.sort_values("accuracy_percent", ascending=False)
-                .head(15)
-                .sort_values("accuracy_percent", ascending=True)
-            )
+            accuracy_df = df.copy().sort_values("accuracy_percent", ascending=False)
+            max_accuracy = float(accuracy_df["accuracy_percent"].max()) if not accuracy_df.empty else 0.0
+            accuracy_top = min(110.0, _nice_axis_top(max_accuracy, minimum=10.0, headroom_ratio=0.12, extra=4.0))
 
             fig_accuracy = px.bar(
                 accuracy_df,
-                x="accuracy_percent",
-                y="username",
-                orientation="h",
-                title="Top 15 Students by Accuracy",
+                x="username",
+                y="accuracy_percent",
+                color="role",
+                title="Accuracy by User",
                 text="accuracy_percent",
-                color_discrete_sequence=["#8B5CF6"],
+                barmode="group",
+                color_discrete_map={"Admin": "#60A5FA", "Student": "#A78BFA"},
                 hover_data={
                     "level": True,
                     "correct_answers": True,
@@ -600,27 +598,22 @@ def build_admin_figures(
                 },
                 template=template,
             )
-            fig_accuracy.update_traces(
-                texttemplate="%{text:.1f}%",
-                textposition="outside",
-                cliponaxis=False,
-            )
+            fig_accuracy.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
             fig_accuracy.update_layout(
-                height=430,
-                margin=dict(l=140, r=40, t=60, b=40),
-                showlegend=False,
-                xaxis=dict(range=[0, 105], title="Accuracy (%)", automargin=True),
-                yaxis=dict(title="", automargin=True),
+                height=380,
+                margin=dict(l=20, r=20, t=60, b=40),
+                uniformtext_minsize=8,
+                uniformtext_mode="hide",
+                yaxis=dict(range=[0, accuracy_top], automargin=True),
+                xaxis=dict(automargin=True),
             )
             figures["accuracy"] = fig_accuracy.to_json()
 
-            # Keep level distribution as a clean donut chart.
             level_counts = (
                 student_df.groupby("level", as_index=False)
                 .size()
                 .rename(columns={"size": "count"})
             )
-
             fig_levels = px.pie(
                 level_counts,
                 names="level",
@@ -635,28 +628,18 @@ def build_admin_figures(
                 },
                 template=template,
             )
-            fig_levels.update_layout(
-                height=430,
-                margin=dict(l=20, r=20, t=60, b=20),
-            )
+            fig_levels.update_layout(height=380, margin=dict(l=20, r=20, t=60, b=20))
             figures["levels"] = fig_levels.to_json()
 
-            # Top 15 active students only.
-            engagement_df = (
-                student_df.sort_values("total_answers", ascending=False)
-                .head(15)
-                .sort_values("total_answers", ascending=True)
-            )
-
+            engagement_df = student_df.copy().sort_values("total_answers", ascending=False)
             max_engagement = float(engagement_df["total_answers"].max()) if not engagement_df.empty else 0.0
-            engagement_top = _nice_axis_top(max_engagement, minimum=5.0, headroom_ratio=0.18, extra=2.0)
+            engagement_top = _nice_axis_top(max_engagement, minimum=5.0, headroom_ratio=0.22, extra=1.0)
 
             fig_engagement = px.bar(
                 engagement_df,
-                x="total_answers",
-                y="username",
-                orientation="h",
-                title="Top 15 Most Active Students",
+                x="username",
+                y="total_answers",
+                title="Engagement by Student",
                 text="total_answers",
                 color_discrete_sequence=["#A78BFA"],
                 hover_data={
@@ -666,121 +649,77 @@ def build_admin_figures(
                 },
                 template=template,
             )
-            fig_engagement.update_traces(
-                textposition="outside",
-                cliponaxis=False,
-            )
+            fig_engagement.update_traces(textposition="outside", cliponaxis=False)
             fig_engagement.update_layout(
-                height=430,
-                margin=dict(l=140, r=40, t=60, b=40),
+                height=380,
+                margin=dict(l=20, r=20, t=60, b=40),
                 showlegend=False,
-                xaxis=dict(range=[0, engagement_top], title="Total Answers", automargin=True),
-                yaxis=dict(title="", automargin=True),
+                yaxis=dict(range=[0, engagement_top], automargin=True),
+                xaxis=dict(automargin=True),
             )
             figures["engagement"] = fig_engagement.to_json()
 
-            # Better weak-topic visual: aggregate weakest topics instead of showing every student.
-            weak_topic_df = student_df[
-                (student_df["weakest_topic"].notna())
-                & (student_df["weakest_topic"] != "None")
-                & (student_df["weak_topics_count"] > 0)
-            ].copy()
+            weak_df = student_df.copy().sort_values("weak_topics_count", ascending=False)
+            max_weak = float(weak_df["weak_topics_count"].max()) if not weak_df.empty else 0.0
+            weak_top = _nice_axis_top(max_weak, minimum=5.0, headroom_ratio=0.22, extra=1.0)
 
-            if not weak_topic_df.empty:
-                weak_summary = (
-                    weak_topic_df.groupby("weakest_topic", as_index=False)
-                    .agg(
-                        student_count=("username", "count"),
-                        total_weak_flags=("weak_topics_count", "sum"),
-                    )
-                    .sort_values("total_weak_flags", ascending=False)
-                    .head(10)
-                    .sort_values("total_weak_flags", ascending=True)
-                )
-
-                weak_top = _nice_axis_top(
-                    float(weak_summary["total_weak_flags"].max()),
-                    minimum=5.0,
-                    headroom_ratio=0.22,
-                    extra=1.0,
-                )
-
-                fig_weak = px.bar(
-                    weak_summary,
-                    x="total_weak_flags",
-                    y="weakest_topic",
-                    orientation="h",
-                    title="Top Weak Topics Overall",
-                    text="total_weak_flags",
-                    color_discrete_sequence=["#F472B6"],
-                    hover_data={
-                        "student_count": True,
-                        "total_weak_flags": True,
-                    },
-                    template=template,
-                )
-                fig_weak.update_traces(
-                    textposition="outside",
-                    cliponaxis=False,
-                )
-                fig_weak.update_layout(
-                    height=430,
-                    margin=dict(l=210, r=40, t=60, b=40),
-                    showlegend=False,
-                    xaxis=dict(range=[0, weak_top], title="Weak Topic Count", automargin=True),
-                    yaxis=dict(title="", automargin=True),
-                )
-                figures["weak"] = fig_weak.to_json()
+            fig_weak = px.bar(
+                weak_df,
+                x="username",
+                y="weak_topics_count",
+                title="Weak Topics by Student",
+                text="weak_topics_count",
+                color_discrete_sequence=["#F472B6"],
+                hover_data={
+                    "weakest_topic": True,
+                    "weak_topics_count": True,
+                },
+                template=template,
+            )
+            fig_weak.update_traces(textposition="outside", cliponaxis=False)
+            fig_weak.update_layout(
+                height=380,
+                margin=dict(l=20, r=20, t=60, b=40),
+                showlegend=False,
+                yaxis=dict(range=[0, weak_top], automargin=True),
+                xaxis=dict(automargin=True),
+            )
+            figures["weak"] = fig_weak.to_json()
 
     selected_topic_value = selected_topic if selected_topic else "All Topics"
     topic_rows = store.get_students_per_topic(selected_topic_value)
-
     if topic_rows:
         topic_df = pd.DataFrame(topic_rows)
-
-        if not topic_df.empty:
-            topic_df = topic_df.sort_values("student_count", ascending=True)
-
         max_students = float(topic_df["student_count"].max()) if not topic_df.empty else 0.0
         students_top = _nice_axis_top(max_students, minimum=2.0, headroom_ratio=0.22, extra=1.0)
 
         fig_topic_students = px.bar(
             topic_df,
-            x="student_count",
-            y="topic",
-            orientation="h",
+            x="topic",
+            y="student_count",
             text="student_count",
             title="Students per Topic",
             color_discrete_sequence=["#22C55E"],
             template=template,
         )
-        fig_topic_students.update_traces(
-            textposition="outside",
-            cliponaxis=False,
-        )
+        fig_topic_students.update_traces(textposition="outside", cliponaxis=False)
         fig_topic_students.update_layout(
-            height=430,
-            margin=dict(l=260, r=40, t=60, b=40),
+            height=380,
+            margin=dict(l=20, r=20, t=60, b=60),
             showlegend=False,
-            xaxis=dict(range=[0, students_top], title="Students", automargin=True),
-            yaxis=dict(title="", automargin=True),
+            yaxis=dict(range=[0, students_top], automargin=True),
+            xaxis=dict(automargin=True),
         )
         figures["topic_students"] = fig_topic_students.to_json()
 
     selected_student_value = selected_student.strip() if selected_student else ""
     if selected_student_value:
         progress_rows = store.get_quiz_progress_for_student(selected_student_value)
-
         if progress_rows:
             progress_df = pd.DataFrame(progress_rows)
             progress_top = min(
                 110.0,
-                _nice_axis_top(
-                    float(progress_df["percent"].max()),
-                    minimum=10.0,
-                    headroom_ratio=0.15,
-                    extra=3.0,
-                ),
+                _nice_axis_top(float(progress_df["percent"].max()), minimum=10.0, headroom_ratio=0.15, extra=3.0),
             )
 
             fig_progress = px.line(
@@ -798,19 +737,16 @@ def build_admin_figures(
                 title=f"Quiz-to-Quiz Progress for {selected_student_value}",
                 template=template,
             )
-            fig_progress.update_traces(
-                line=dict(width=4),
-                marker=dict(size=10),
-            )
             fig_progress.update_layout(
-                height=430,
-                margin=dict(l=40, r=40, t=60, b=40),
+                height=380,
+                margin=dict(l=20, r=20, t=60, b=40),
                 yaxis=dict(range=[0, progress_top], automargin=True, title="Score (%)"),
                 xaxis=dict(automargin=True, title="Quiz Attempt"),
             )
             figures["student_progress"] = fig_progress.to_json()
 
     return figures, topic_names, student_names
+
 
 # -----------------------------
 # Rendering / guards
