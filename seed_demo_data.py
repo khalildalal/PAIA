@@ -19,8 +19,6 @@ DATA_DIR = Path(
     or os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
     or str(BASE_DIR / "data")
 )
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-
 DB_PATH = DATA_DIR / "student_profiles.db"
 
 PASSWORD = "student123"
@@ -51,168 +49,86 @@ def username_from_name(name: str) -> str:
     return name.lower().replace(" ", ".")
 
 
-def ensure_tables(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY,
-            password TEXT NOT NULL,
-            is_admin INTEGER NOT NULL DEFAULT 0,
-            profile_json TEXT
-        )
-        """
-    )
+def main() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS quiz_attempts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            quiz_title TEXT,
-            quiz_topic TEXT,
-            score INTEGER NOT NULL,
-            total INTEGER NOT NULL,
-            percent REAL NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
-        )
-        """
-    )
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
 
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS quiz_attempt_topics (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            attempt_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            topic TEXT NOT NULL,
-            is_correct INTEGER NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
-            FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
-        )
-        """
-    )
+        for index, name in enumerate(STUDENTS, start=1):
+            username = username_from_name(name)
+            random.seed(index)
 
-    conn.commit()
-
-
-def seed_student(conn: sqlite3.Connection, name: str, index: int) -> None:
-    username = username_from_name(name)
-
-    random.seed(index)
-
-    profile = StudentProfile(name=username)
-
-    quiz_scores = []
-
-    for quiz_no in range(1, 6):
-        topic = TOPICS[(index + quiz_no) % len(TOPICS)]
-
-        if index % 5 == 0:
-            score = random.randint(4, 7)
-        elif index % 5 == 1:
-            score = random.randint(5, 8)
-        elif index % 5 == 2:
-            score = random.randint(6, 9)
-        elif index % 5 == 3:
-            score = random.randint(7, 10)
-        else:
-            score = random.randint(3, 8)
-
-        quiz_scores.append((quiz_no, topic, score))
-
-        correct_count = score
-        wrong_count = 10 - score
-
-        for _ in range(correct_count):
-            profile.update_performance(topic, True)
-
-        for _ in range(wrong_count):
-            profile.update_performance(topic, False)
-
-    conn.execute(
-        """
-        INSERT OR REPLACE INTO users (username, password, is_admin, profile_json)
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            username,
-            hash_password(PASSWORD),
-            0,
-            json.dumps(profile.to_dict(), indent=2),
-        ),
-    )
-
-    conn.execute(
-        """
-        DELETE FROM quiz_attempt_topics
-        WHERE username = ?
-        """,
-        (username,),
-    )
-
-    conn.execute(
-        """
-        DELETE FROM quiz_attempts
-        WHERE username = ?
-        """,
-        (username,),
-    )
-
-    for quiz_no, topic, score in quiz_scores:
-        percent = round((score / 10) * 100, 2)
-
-        cursor = conn.execute(
-            """
-            INSERT INTO quiz_attempts (username, quiz_title, quiz_topic, score, total, percent)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                username,
-                f"Demo Quiz {quiz_no}",
-                topic,
-                score,
-                10,
-                percent,
-            ),
-        )
-
-        attempt_id = int(cursor.lastrowid)
-
-        for q_index in range(1, 11):
-            is_correct = 1 if q_index <= score else 0
+            profile = StudentProfile(name=username)
 
             conn.execute(
                 """
-                INSERT INTO quiz_attempt_topics (attempt_id, username, topic, is_correct)
+                INSERT OR REPLACE INTO users (username, password, is_admin, profile_json)
                 VALUES (?, ?, ?, ?)
                 """,
-                (
-                    attempt_id,
-                    username,
-                    topic,
-                    is_correct,
-                ),
+                (username, hash_password(PASSWORD), 0, json.dumps({})),
             )
 
+            conn.execute("DELETE FROM quiz_attempt_topics WHERE username = ?", (username,))
+            conn.execute("DELETE FROM quiz_attempts WHERE username = ?", (username,))
 
-def main() -> None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("PRAGMA foreign_keys = ON")
-        ensure_tables(conn)
+            for quiz_no in range(1, 6):
+                topic = TOPICS[(index + quiz_no) % len(TOPICS)]
+                score = random.randint(4, 10)
 
-        for index, name in enumerate(STUDENTS, start=1):
-            seed_student(conn, name, index)
+                for q_no in range(1, 11):
+                    correct = q_no <= score
+                    profile.update_performance(topic, correct)
+
+                percent = round((score / 10) * 100, 2)
+
+                cursor = conn.execute(
+                    """
+                    INSERT INTO quiz_attempts (username, quiz_title, quiz_topic, score, total, percent)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        username,
+                        f"Demo Quiz {quiz_no}",
+                        topic,
+                        score,
+                        10,
+                        percent,
+                    ),
+                )
+
+                attempt_id = cursor.lastrowid
+
+                for q_no in range(1, 11):
+                    conn.execute(
+                        """
+                        INSERT INTO quiz_attempt_topics (attempt_id, username, topic, is_correct)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (
+                            attempt_id,
+                            username,
+                            topic,
+                            1 if q_no <= score else 0,
+                        ),
+                    )
+
+            conn.execute(
+                """
+                UPDATE users
+                SET profile_json = ?
+                WHERE username = ?
+                """,
+                (json.dumps(profile.to_dict(), indent=2), username),
+            )
 
         conn.commit()
 
-    print("Demo dataset added successfully.")
-    print(f"Students added: {len(STUDENTS)}")
-    print("Quizzes per student: 5")
-    print("Questions per quiz: 10")
-    print(f"Default password for demo students: {PASSWORD}")
-    print(f"Database path: {DB_PATH}")
+    print("DONE: 50 Lebanese student users added.")
+    print("Each user has 5 quizzes.")
+    print("Each quiz has 10 question results.")
+    print("Password for all demo students: student123")
+    print(f"Database used: {DB_PATH}")
 
 
 if __name__ == "__main__":
