@@ -9,9 +9,11 @@ They do not change how the page works.
 -->
 
 {% extends "base.html" %}
+
 {% block head_extra %}
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 {% endblock %}
+
 {% block content %}
 <section class="panel">
   <h2>📊 Admin Dashboard</h2>
@@ -39,8 +41,9 @@ They do not change how the page works.
 
 {% if figures %}
 <section class="chart-grid">
-  {% if figures.accuracy %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="accuracy-chart"></div></div></div>{% endif %}
   {% if figures.levels %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="levels-chart"></div></div></div>{% endif %}
+  {% if figures.segments %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="segments-chart"></div></div></div>{% endif %}
+  {% if figures.accuracy %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="accuracy-chart"></div></div></div>{% endif %}
   {% if figures.engagement %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="engagement-chart"></div></div></div>{% endif %}
   {% if figures.weak %}<div class="panel chart-panel chart-fade"><div class="chart-box"><div id="weak-chart"></div></div></div>{% endif %}
 </section>
@@ -182,30 +185,41 @@ They do not change how the page works.
     function renderChart(id, figureJson) {
       const parsed = JSON.parse(figureJson);
       const layout = Object.assign({ autosize: true }, parsed.layout || {});
+
       Plotly.newPlot(id, parsed.data || [], layout, plotConfig).then(function () {
         const el = document.getElementById(id);
         if (el && el.closest(".chart-fade")) {
           el.closest(".chart-fade").classList.add("visible");
         }
       });
+
       chartIds.push(id);
     }
+
+    {% if figures.levels %}
+    renderChart("levels-chart", {{ figures.levels|tojson }});
+    {% endif %}
+
+    {% if figures.segments %}
+    renderChart("segments-chart", {{ figures.segments|tojson }});
+    {% endif %}
 
     {% if figures.accuracy %}
     renderChart("accuracy-chart", {{ figures.accuracy|tojson }});
     {% endif %}
-    {% if figures.levels %}
-    renderChart("levels-chart", {{ figures.levels|tojson }});
-    {% endif %}
+
     {% if figures.engagement %}
     renderChart("engagement-chart", {{ figures.engagement|tojson }});
     {% endif %}
+
     {% if figures.weak %}
     renderChart("weak-chart", {{ figures.weak|tojson }});
     {% endif %}
+
     {% if figures.topic_students %}
     renderChart("topic-students-chart", {{ figures.topic_students|tojson }});
     {% endif %}
+
     {% if figures.student_progress %}
     renderChart("student-progress-chart", {{ figures.student_progress|tojson }});
     {% endif %}

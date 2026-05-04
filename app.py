@@ -559,7 +559,6 @@ def _nice_axis_top(max_value: float, *, minimum: float = 1.0, headroom_ratio: fl
     padded = max_value * (1.0 + headroom_ratio) + extra
     return max(minimum, padded)
 
-
 def build_admin_figures(
     df: pd.DataFrame,
     theme: str,
@@ -573,23 +572,39 @@ def build_admin_figures(
     topic_names = store.list_quiz_topics()
     student_names = store.list_student_usernames()
 
+    def add_dropdown(fig, buttons):
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    buttons=buttons,
+                    direction="down",
+                    x=0,
+                    y=1.18,
+                    xanchor="left",
+                    yanchor="top",
+                    showactive=True,
+                )
+            ]
+        )
+
     if not df.empty:
         student_df = df[df["role"] == "Student"].copy()
 
         if not student_df.empty:
-            accuracy_df = df.copy().sort_values("accuracy_percent", ascending=False)
-            max_accuracy = float(accuracy_df["accuracy_percent"].max()) if not accuracy_df.empty else 0.0
-            accuracy_top = min(110.0, _nice_axis_top(max_accuracy, minimum=10.0, headroom_ratio=0.12, extra=4.0))
+            # -----------------------------
+            # Accuracy chart with dropdown
+            # -----------------------------
+            accuracy_all = student_df.sort_values("accuracy_percent", ascending=False)
+            accuracy_top10 = accuracy_all.head(10)
+            accuracy_low10 = accuracy_all.tail(10)
 
             fig_accuracy = px.bar(
-                accuracy_df,
+                accuracy_top10,
                 x="username",
                 y="accuracy_percent",
-                color="role",
-                title="Accuracy by User",
+                title="Accuracy by Student",
                 text="accuracy_percent",
-                barmode="group",
-                color_discrete_map={"Admin": "#60A5FA", "Student": "#A78BFA"},
+                color_discrete_sequence=["#A78BFA"],
                 hover_data={
                     "level": True,
                     "correct_answers": True,
@@ -598,22 +613,144 @@ def build_admin_figures(
                 },
                 template=template,
             )
-            fig_accuracy.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False)
+
+            fig_accuracy.update_traces(
+                texttemplate="%{text:.1f}%",
+                textposition="outside",
+                cliponaxis=False,
+            )
+
+            add_dropdown(
+                fig_accuracy,
+                [
+                    dict(
+                        label="Top 10",
+                        method="update",
+                        args=[
+                            {
+                                "x": [accuracy_top10["username"]],
+                                "y": [accuracy_top10["accuracy_percent"]],
+                                "text": [accuracy_top10["accuracy_percent"]],
+                            },
+                            {"title": "Accuracy by Student - Top 10"},
+                        ],
+                    ),
+                    dict(
+                        label="Low 10",
+                        method="update",
+                        args=[
+                            {
+                                "x": [accuracy_low10["username"]],
+                                "y": [accuracy_low10["accuracy_percent"]],
+                                "text": [accuracy_low10["accuracy_percent"]],
+                            },
+                            {"title": "Accuracy by Student - Low 10"},
+                        ],
+                    ),
+                    dict(
+                        label="All",
+                        method="update",
+                        args=[
+                            {
+                                "x": [accuracy_all["username"]],
+                                "y": [accuracy_all["accuracy_percent"]],
+                                "text": [accuracy_all["accuracy_percent"]],
+                            },
+                            {"title": "Accuracy by Student - All"},
+                        ],
+                    ),
+                ],
+            )
+
             fig_accuracy.update_layout(
-                height=380,
-                margin=dict(l=20, r=20, t=60, b=40),
+                height=420,
+                margin=dict(l=20, r=20, t=90, b=80),
+                showlegend=False,
                 uniformtext_minsize=8,
                 uniformtext_mode="hide",
-                yaxis=dict(range=[0, accuracy_top], automargin=True),
-                xaxis=dict(automargin=True),
+                yaxis=dict(range=[0, 110], title="Accuracy (%)", automargin=True),
+                xaxis=dict(automargin=True, tickangle=-35),
             )
             figures["accuracy"] = fig_accuracy.to_json()
 
+            # -----------------------------
+            # Performance segments chart
+            # -----------------------------
+            sorted_students = student_df.sort_values("accuracy_percent", ascending=False).copy()
+            high_group = sorted_students.head(10)
+            low_group = sorted_students.tail(10)
+            middle_group = sorted_students.iloc[10:-10] if len(sorted_students) > 20 else sorted_students.iloc[0:0]
+
+            segment_rows = []
+
+            if not high_group.empty:
+                segment_rows.append({
+                    "segment": "High Performers (Top 10)",
+                    "average_accuracy": round(float(high_group["accuracy_percent"].mean()), 2),
+                    "student_count": len(high_group),
+                })
+
+            if not middle_group.empty:
+                segment_rows.append({
+                    "segment": "Average Performers (Middle)",
+                    "average_accuracy": round(float(middle_group["accuracy_percent"].mean()), 2),
+                    "student_count": len(middle_group),
+                })
+
+            if not low_group.empty:
+                segment_rows.append({
+                    "segment": "Low Performers (Bottom 10)",
+                    "average_accuracy": round(float(low_group["accuracy_percent"].mean()), 2),
+                    "student_count": len(low_group),
+                })
+
+            if segment_rows:
+                segment_df = pd.DataFrame(segment_rows)
+
+                fig_segments = px.bar(
+                    segment_df,
+                    x="segment",
+                    y="average_accuracy",
+                    text="average_accuracy",
+                    title="Performance Segments Overview",
+                    color="segment",
+                    color_discrete_map={
+                        "High Performers (Top 10)": "#34D399",
+                        "Average Performers (Middle)": "#38BDF8",
+                        "Low Performers (Bottom 10)": "#F59E0B",
+                    },
+                    hover_data={
+                        "student_count": True,
+                        "average_accuracy": ":.2f",
+                    },
+                    template=template,
+                )
+
+                fig_segments.update_traces(
+                    texttemplate="%{text:.1f}%",
+                    textposition="outside",
+                    cliponaxis=False,
+                )
+
+                fig_segments.update_layout(
+                    height=420,
+                    margin=dict(l=20, r=20, t=60, b=80),
+                    showlegend=False,
+                    yaxis=dict(range=[0, 110], title="Average Accuracy (%)", automargin=True),
+                    xaxis=dict(title="", automargin=True),
+                )
+
+                figures["segments"] = fig_segments.to_json()
+
+            # -----------------------------
+            # Level distribution
+            # -----------------------------
             level_counts = (
                 student_df.groupby("level", as_index=False)
                 .size()
                 .rename(columns={"size": "count"})
             )
+
             fig_levels = px.pie(
                 level_counts,
                 names="level",
@@ -628,15 +765,22 @@ def build_admin_figures(
                 },
                 template=template,
             )
-            fig_levels.update_layout(height=380, margin=dict(l=20, r=20, t=60, b=20))
+
+            fig_levels.update_layout(height=420, margin=dict(l=20, r=20, t=60, b=20))
             figures["levels"] = fig_levels.to_json()
 
-            engagement_df = student_df.copy().sort_values("total_answers", ascending=False)
-            max_engagement = float(engagement_df["total_answers"].max()) if not engagement_df.empty else 0.0
+            # -----------------------------
+            # Engagement chart with dropdown
+            # -----------------------------
+            engagement_all = student_df.sort_values("total_answers", ascending=False)
+            engagement_top10 = engagement_all.head(10)
+            engagement_low10 = engagement_all.tail(10)
+
+            max_engagement = float(engagement_all["total_answers"].max()) if not engagement_all.empty else 0.0
             engagement_top = _nice_axis_top(max_engagement, minimum=5.0, headroom_ratio=0.22, extra=1.0)
 
             fig_engagement = px.bar(
-                engagement_df,
+                engagement_top10,
                 x="username",
                 y="total_answers",
                 title="Engagement by Student",
@@ -649,22 +793,72 @@ def build_admin_figures(
                 },
                 template=template,
             )
+
             fig_engagement.update_traces(textposition="outside", cliponaxis=False)
+
+            add_dropdown(
+                fig_engagement,
+                [
+                    dict(
+                        label="Top 10",
+                        method="update",
+                        args=[
+                            {
+                                "x": [engagement_top10["username"]],
+                                "y": [engagement_top10["total_answers"]],
+                                "text": [engagement_top10["total_answers"]],
+                            },
+                            {"title": "Engagement by Student - Top 10"},
+                        ],
+                    ),
+                    dict(
+                        label="Low 10",
+                        method="update",
+                        args=[
+                            {
+                                "x": [engagement_low10["username"]],
+                                "y": [engagement_low10["total_answers"]],
+                                "text": [engagement_low10["total_answers"]],
+                            },
+                            {"title": "Engagement by Student - Low 10"},
+                        ],
+                    ),
+                    dict(
+                        label="All",
+                        method="update",
+                        args=[
+                            {
+                                "x": [engagement_all["username"]],
+                                "y": [engagement_all["total_answers"]],
+                                "text": [engagement_all["total_answers"]],
+                            },
+                            {"title": "Engagement by Student - All"},
+                        ],
+                    ),
+                ],
+            )
+
             fig_engagement.update_layout(
-                height=380,
-                margin=dict(l=20, r=20, t=60, b=40),
+                height=420,
+                margin=dict(l=20, r=20, t=90, b=80),
                 showlegend=False,
                 yaxis=dict(range=[0, engagement_top], automargin=True),
-                xaxis=dict(automargin=True),
+                xaxis=dict(automargin=True, tickangle=-35),
             )
             figures["engagement"] = fig_engagement.to_json()
 
-            weak_df = student_df.copy().sort_values("weak_topics_count", ascending=False)
-            max_weak = float(weak_df["weak_topics_count"].max()) if not weak_df.empty else 0.0
+            # -----------------------------
+            # Weak topics chart with dropdown
+            # -----------------------------
+            weak_all = student_df.sort_values("weak_topics_count", ascending=False)
+            weak_top10 = weak_all.head(10)
+            weak_low10 = weak_all.tail(10)
+
+            max_weak = float(weak_all["weak_topics_count"].max()) if not weak_all.empty else 0.0
             weak_top = _nice_axis_top(max_weak, minimum=5.0, headroom_ratio=0.22, extra=1.0)
 
             fig_weak = px.bar(
-                weak_df,
+                weak_top10,
                 x="username",
                 y="weak_topics_count",
                 title="Weak Topics by Student",
@@ -676,18 +870,63 @@ def build_admin_figures(
                 },
                 template=template,
             )
+
             fig_weak.update_traces(textposition="outside", cliponaxis=False)
+
+            add_dropdown(
+                fig_weak,
+                [
+                    dict(
+                        label="Top 10",
+                        method="update",
+                        args=[
+                            {
+                                "x": [weak_top10["username"]],
+                                "y": [weak_top10["weak_topics_count"]],
+                                "text": [weak_top10["weak_topics_count"]],
+                            },
+                            {"title": "Weak Topics by Student - Top 10"},
+                        ],
+                    ),
+                    dict(
+                        label="Low 10",
+                        method="update",
+                        args=[
+                            {
+                                "x": [weak_low10["username"]],
+                                "y": [weak_low10["weak_topics_count"]],
+                                "text": [weak_low10["weak_topics_count"]],
+                            },
+                            {"title": "Weak Topics by Student - Low 10"},
+                        ],
+                    ),
+                    dict(
+                        label="All",
+                        method="update",
+                        args=[
+                            {
+                                "x": [weak_all["username"]],
+                                "y": [weak_all["weak_topics_count"]],
+                                "text": [weak_all["weak_topics_count"]],
+                            },
+                            {"title": "Weak Topics by Student - All"},
+                        ],
+                    ),
+                ],
+            )
+
             fig_weak.update_layout(
-                height=380,
-                margin=dict(l=20, r=20, t=60, b=40),
+                height=420,
+                margin=dict(l=20, r=20, t=90, b=80),
                 showlegend=False,
                 yaxis=dict(range=[0, weak_top], automargin=True),
-                xaxis=dict(automargin=True),
+                xaxis=dict(automargin=True, tickangle=-35),
             )
             figures["weak"] = fig_weak.to_json()
 
     selected_topic_value = selected_topic if selected_topic else "All Topics"
     topic_rows = store.get_students_per_topic(selected_topic_value)
+
     if topic_rows:
         topic_df = pd.DataFrame(topic_rows)
         max_students = float(topic_df["student_count"].max()) if not topic_df.empty else 0.0
@@ -702,21 +941,27 @@ def build_admin_figures(
             color_discrete_sequence=["#22C55E"],
             template=template,
         )
+
         fig_topic_students.update_traces(textposition="outside", cliponaxis=False)
+
         fig_topic_students.update_layout(
-            height=380,
-            margin=dict(l=20, r=20, t=60, b=60),
+            height=420,
+            margin=dict(l=20, r=20, t=60, b=80),
             showlegend=False,
             yaxis=dict(range=[0, students_top], automargin=True),
-            xaxis=dict(automargin=True),
+            xaxis=dict(automargin=True, tickangle=-25),
         )
+
         figures["topic_students"] = fig_topic_students.to_json()
 
     selected_student_value = selected_student.strip() if selected_student else ""
+
     if selected_student_value:
         progress_rows = store.get_quiz_progress_for_student(selected_student_value)
+
         if progress_rows:
             progress_df = pd.DataFrame(progress_rows)
+
             progress_top = min(
                 110.0,
                 _nice_axis_top(float(progress_df["percent"].max()), minimum=10.0, headroom_ratio=0.15, extra=3.0),
@@ -737,17 +982,17 @@ def build_admin_figures(
                 title=f"Quiz-to-Quiz Progress for {selected_student_value}",
                 template=template,
             )
+
             fig_progress.update_layout(
-                height=380,
+                height=420,
                 margin=dict(l=20, r=20, t=60, b=40),
                 yaxis=dict(range=[0, progress_top], automargin=True, title="Score (%)"),
                 xaxis=dict(automargin=True, title="Quiz Attempt"),
             )
+
             figures["student_progress"] = fig_progress.to_json()
 
     return figures, topic_names, student_names
-
-
 # -----------------------------
 # Rendering / guards
 # -----------------------------
@@ -796,7 +1041,7 @@ def get_persisted_quiz() -> Optional[dict]:
 
 def persist_quiz_results(results: dict | None) -> None:
     """Save graded quiz results into the session or remove them."""
-    if results is None:
+    if results is N.pyone:
         session.pop("quiz_results", None)
     else:
         session["quiz_results"] = results
