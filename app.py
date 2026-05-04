@@ -1397,6 +1397,12 @@ def quiz():
 
     tutor = get_tutor()
     student = load_student()
+   course_documents = store.list_course_documents()
+rag_topics = sorted({doc["course_code"] for doc in course_documents if doc.get("course_code")})
+
+topics = ["All Topics"] + rag_topics
+
+if not rag_topics:
     topics = ["All Topics"] + student.topic_list()
 
     quiz = get_persisted_quiz()
