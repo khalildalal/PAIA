@@ -1447,11 +1447,6 @@ bootstrap_default_courses()
 
 # Start the Flask application.
 # On Railway, PORT is provided automatically.
-@app.route("/seed-data")
-def seed_data():
-    from seed_demo_data import main
-    main()
-    return "Database seeded successfully!"
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
