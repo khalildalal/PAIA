@@ -49,6 +49,36 @@ def username_from_name(name: str) -> str:
     return name.lower().replace(" ", ".")
 
 
+def score_for_group(index: int) -> int:
+    """
+    Create realistic different levels:
+    - first 15 students: advanced
+    - next 25 students: intermediate
+    - last 10 students: beginner
+    """
+    if index <= 15:
+        return random.randint(8, 10)
+    if index <= 40:
+        return random.randint(5, 8)
+    return random.randint(2, 5)
+
+
+def force_level_from_accuracy(profile: StudentProfile) -> None:
+    """
+    Demo-data rule:
+    Force the displayed level to match quiz performance clearly.
+    This avoids high-accuracy students staying intermediate because of average mastery.
+    """
+    acc = profile.accuracy()
+
+    if acc >= 0.82:
+        profile.level = "advanced"
+    elif acc >= 0.55:
+        profile.level = "intermediate"
+    else:
+        profile.level = "beginner"
+
+
 def main() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -60,6 +90,10 @@ def main() -> None:
             random.seed(index)
 
             profile = StudentProfile(name=username)
+
+            # Force student profile topics to match RAG topics only.
+            profile.topic_mastery = {topic: 0.5 for topic in TOPICS}
+            profile.weak_topics = {}
 
             conn.execute(
                 """
@@ -74,13 +108,19 @@ def main() -> None:
 
             for quiz_no in range(1, 6):
                 topic = TOPICS[(index + quiz_no) % len(TOPICS)]
-                score = random.randint(4, 10)
+                score = score_for_group(index)
+                percent = round((score / 10) * 100, 2)
+
+                results = []
 
                 for q_no in range(1, 11):
                     correct = q_no <= score
                     profile.update_performance(topic, correct)
 
-                percent = round((score / 10) * 100, 2)
+                    results.append({
+                        "topic": topic,
+                        "is_correct": correct,
+                    })
 
                 cursor = conn.execute(
                     """
@@ -99,7 +139,7 @@ def main() -> None:
 
                 attempt_id = cursor.lastrowid
 
-                for q_no in range(1, 11):
+                for item in results:
                     conn.execute(
                         """
                         INSERT INTO quiz_attempt_topics (attempt_id, username, topic, is_correct)
@@ -108,10 +148,12 @@ def main() -> None:
                         (
                             attempt_id,
                             username,
-                            topic,
-                            1 if q_no <= score else 0,
+                            item["topic"],
+                            1 if item["is_correct"] else 0,
                         ),
                     )
+
+            force_level_from_accuracy(profile)
 
             conn.execute(
                 """
@@ -125,8 +167,10 @@ def main() -> None:
         conn.commit()
 
     print("DONE: 50 Lebanese student users added.")
+    print("Levels include advanced, intermediate, and beginner.")
     print("Each user has 5 quizzes.")
     print("Each quiz has 10 question results.")
+    print("Topics are based on RAG chapters.")
     print("Password for all demo students: student123")
     print(f"Database used: {DB_PATH}")
 
