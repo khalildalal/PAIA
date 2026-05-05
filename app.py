@@ -1232,18 +1232,6 @@ def logout():
     flash("Logged out.", "success")
     return redirect(url_for("login"))
 
-@app.route("/seed-demo")
-def seed_demo():
-    if not store.is_admin(current_username() or ""):
-        return "Admin only"
-
-    try:
-        import seed_demo_data
-        seed_demo_data.main()
-        return "✅ Demo data created successfully!"
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
 
 @app.route("/solve", methods=["GET", "POST"])
 def solve():
