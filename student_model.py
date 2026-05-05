@@ -24,13 +24,11 @@ from typing import Dict, List
 
 
 DEFAULT_TOPICS = [
-    "Basic Probability",
-    "Conditional Probability",
-    "Bayes' Theorem",
-    "Permutations",
-    "Combinations",
-    "Random Variables",
-    "Expected Value",
+    "Chapter 1: Descriptive Statistics",
+    "Chapter 2: Probability",
+    "Chapter 3: Discrete Random Variables and Probability Distributions",
+    "Chapter 4: Continuous Random Variables and Probability Distributions",
+    "Chapter 5: Joint Probability Distributions and Random Samples",
 ]
 
 
