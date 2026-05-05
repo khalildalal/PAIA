@@ -1352,7 +1352,10 @@ def practice():
     tutor = get_tutor()
     student = load_student()
     exercise = None
-    topics = student.topic_list()
+
+    topics = store.list_quiz_topics()
+    if not topics:
+        topics = student.topic_list()
 
     topic_mode = request.form.get("topic_mode", "Choose manually")
     chosen_topic = request.form.get("topic", topics[0] if topics else "Basic Probability")
